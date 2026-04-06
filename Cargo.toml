@@ -1,0 +1,14 @@
+[package]
+name = "iced_context_menu"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+iced = "0.13"
+
+[[example]]
+name = "right_click"
+path = "examples/right_click.rs"
+
+[dev-dependencies]
+iced = "0.13"
