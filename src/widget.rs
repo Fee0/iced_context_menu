@@ -482,15 +482,6 @@ impl<Message: Clone> Widget<Message, Theme, iced::Renderer> for ContextMenu<'_, 
             }
         }
 
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "[iced_context_menu] overlay frame: panel_count={} panel_rects={} open_path={:?} structure_key={:?}",
-            runtime.panels.len(),
-            state.panel_rects.len(),
-            state.open_path,
-            &structure_key,
-        );
-
         state.last_overlay_structure = Some(structure_key);
 
         let bridge = OverlayBridge {
@@ -973,12 +964,6 @@ fn poll_hover_submenu(
         && open_path.as_slice() != hover_path.as_slice()
         && should_open_hover(*hover_started_at, now, delay_ms)
     {
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "[iced_context_menu] hover promotion: open_path {:?} -> {:?}",
-            open_path.as_slice(),
-            hover_path.as_slice()
-        );
         *open_path = hover_path.clone();
     }
 
