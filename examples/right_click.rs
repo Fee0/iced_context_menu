@@ -7,7 +7,7 @@ use iced::keyboard;
 use iced::widget::{center, column, container, mouse_area, text, Stack};
 use iced::{Element, Length, Point, Size, Task};
 use iced_context_menu::{
-    context_menu_overlay, ContextMenuOpen, ContextMenuStyle, MenuItem,
+    context_menu_overlay, ContextMenuBuilder, ContextMenuOpen, ContextMenuStyle, MenuItem,
 };
 
 fn main() -> iced::Result {
@@ -26,6 +26,8 @@ enum Message {
     CursorMoved(Point),
     OpenMenu,
     CloseMenu,
+    /// Ignored: used as `on_disabled_press` so disabled rows do not dismiss the menu.
+    NoOp,
     Copy,
     Paste,
     WindowResized(Size),
@@ -37,7 +39,7 @@ struct State {
     cursor: Point,
     viewport: Size,
     status: String,
-    menu_items: [MenuItem<Message>; 4],
+    menu_items: Vec<MenuItem<Message>>,
     menu_style: ContextMenuStyle,
 }
 
@@ -48,20 +50,12 @@ impl Default for State {
             cursor: Point::ORIGIN,
             viewport: Size::new(800.0, 600.0),
             status: String::from("Right-click the area."),
-            menu_items: [
-                MenuItem::Action {
-                    label: "Copy",
-                    message: Message::Copy,
-                },
-                MenuItem::Action {
-                    label: "Paste",
-                    message: Message::Paste,
-                },
-                MenuItem::Separator,
-                MenuItem::Disabled {
-                    label: "Unavailable",
-                },
-            ],
+            menu_items: ContextMenuBuilder::new()
+                .push("Copy", Message::Copy)
+                .push("Paste", Message::Paste)
+                .separator()
+                .unavailable("Unavailable")
+                .build(),
             menu_style: ContextMenuStyle::default(),
         }
     }
@@ -81,6 +75,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.open = Some(ContextMenuOpen { at: state.cursor });
         }
         Message::CloseMenu => state.open = None,
+        Message::NoOp => {}
         Message::Copy => {
             state.open = None;
             state.status = "Copy (demo).".to_string();
@@ -116,6 +111,7 @@ fn view(state: &State) -> Element<Message> {
             state.open,
             &state.menu_items,
             Message::CloseMenu,
+            Message::NoOp,
             state.viewport,
             &state.menu_style,
         ))

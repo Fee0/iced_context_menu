@@ -18,21 +18,75 @@ pub struct ContextMenuOpen {
 #[derive(Clone, Debug)]
 pub enum MenuItem<Message: Clone> {
     Action {
-        label: &'static str,
+        label: String,
         message: Message,
     },
     Separator,
     Disabled {
-        label: &'static str,
+        label: String,
     },
 }
 
+/// Fluent builder for a list of [`MenuItem`] values.
+///
+/// Use [`push`](Self::push) for titled entries that emit your `Message` on click (handle it in `update`).
+/// Use [`unavailable`](Self::unavailable) for non-action rows; pair with [`context_menu_overlay`]'s
+/// `on_disabled_press` so clicks are absorbed without closing the menu.
+pub struct ContextMenuBuilder<Message: Clone> {
+    items: Vec<MenuItem<Message>>,
+}
+
+impl<Message: Clone> ContextMenuBuilder<Message> {
+    pub fn new() -> Self {
+        Self { items: Vec::new() }
+    }
+
+    /// Append an actionable row with `title` and the message produced on primary click.
+    pub fn push(mut self, title: impl Into<String>, message: Message) -> Self {
+        self.items.push(MenuItem::Action {
+            label: title.into(),
+            message,
+        });
+        self
+    }
+
+    pub fn separator(mut self) -> Self {
+        self.items.push(MenuItem::Separator);
+        self
+    }
+
+    /// Append a non-action row (styled as disabled). Clicks are handled via `on_disabled_press`
+    /// in [`context_menu_overlay`]; ignore that message in `update` to keep the menu open.
+    pub fn unavailable(mut self, title: impl Into<String>) -> Self {
+        self.items.push(MenuItem::Disabled {
+            label: title.into(),
+        });
+        self
+    }
+
+    pub fn build(self) -> Vec<MenuItem<Message>> {
+        self.items
+    }
+}
+
+impl<Message: Clone> Default for ContextMenuBuilder<Message> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Full-screen overlay: dimmed dismiss layer and a positioned menu column.
+///
 /// Returns [`None`] when `open` is [`None`] so callers can use [`Stack::push_maybe`](iced::widget::Stack::push_maybe).
+///
+/// **`on_disabled_press`**: message emitted when the user primary-clicks a [`MenuItem::Disabled`] row.
+/// Use a dedicated variant (e.g. `Message::NoOp`) that your `update` ignores so the click does not
+/// fall through to the dismiss layer and close the menu.
 pub fn context_menu_overlay<'a, Message: Clone + 'a>(
     open: Option<ContextMenuOpen>,
     items: &'a [MenuItem<Message>],
     on_dismiss: Message,
+    on_disabled_press: Message,
     viewport: iced::Size,
     style: &'a ContextMenuStyle,
 ) -> Option<Element<'a, Message>> {
@@ -49,7 +103,7 @@ pub fn context_menu_overlay<'a, Message: Clone + 'a>(
     )
     .on_press(on_dismiss.clone());
 
-    let panel = menu_panel(items, style);
+    let panel = menu_panel(items, style, on_disabled_press);
 
     let positioned = container(panel)
         .padding(Padding {
@@ -98,13 +152,14 @@ fn clamp_anchor<Message: Clone>(
 fn menu_panel<'a, Message: Clone + 'a>(
     items: &'a [MenuItem<Message>],
     style: &'a ContextMenuStyle,
+    on_disabled_press: Message,
 ) -> Element<'a, Message> {
     let mut col = column![].spacing(style.row_spacing);
 
     for item in items {
         match item {
             MenuItem::Action { label, message } => {
-                col = col.push(action_row(label, message.clone(), style));
+                col = col.push(action_row(label.as_str(), message.clone(), style));
             }
             MenuItem::Separator => {
                 col = col.push(
@@ -122,16 +177,21 @@ fn menu_panel<'a, Message: Clone + 'a>(
                 );
             }
             MenuItem::Disabled { label } => {
+                let noop = on_disabled_press.clone();
+                let label = label.clone();
                 col = col.push(
-                    container(
-                        text(*label)
-                            .size(style.label_size)
-                            .style(move |_theme: &Theme| text::Style {
-                                color: Some(style.disabled_color),
-                            }),
+                    mouse_area(
+                        container(
+                            text(label)
+                                .size(style.label_size)
+                                .style(move |_theme: &Theme| text::Style {
+                                    color: Some(style.disabled_color),
+                                }),
+                        )
+                        .padding([4.0, 8.0])
+                        .width(Length::Fill),
                     )
-                    .padding([4.0, 8.0])
-                    .width(Length::Fill),
+                    .on_press(noop),
                 );
             }
         }
@@ -150,10 +210,11 @@ fn menu_panel<'a, Message: Clone + 'a>(
 }
 
 fn action_row<'a, Message: Clone + 'a>(
-    label: &'static str,
+    label: &str,
     message: Message,
     style: &'a ContextMenuStyle,
 ) -> Element<'a, Message> {
+    let label = label.to_string();
     button(
         text(label)
             .size(style.label_size)
