@@ -23,6 +23,10 @@ pub struct ContextMenuStyle {
     pub separator_margin_vertical: f32,
     /// Estimated row height for viewport clamping.
     pub row_height: f32,
+    /// Action / submenu row background while hovered.
+    pub row_hover_background: Color,
+    /// Action / submenu row background while pressed.
+    pub row_pressed_background: Color,
     /// Dimmed scrim over content (dismiss layer). Use alpha 0 for invisible.
     pub dismiss_scrim: Color,
 }
@@ -44,6 +48,8 @@ impl Default for ContextMenuStyle {
             separator_height: 1.0,
             separator_margin_vertical: 6.0,
             row_height: 28.0,
+            row_hover_background: Color::from_rgb(0.32, 0.34, 0.40),
+            row_pressed_background: Color::from_rgb(0.24, 0.26, 0.32),
             dismiss_scrim: Color::from_rgba(0.0, 0.0, 0.0, 0.15),
         }
     }
