@@ -1,4 +1,4 @@
-//! Stack-based overlay: dismiss scrim + positioned column of items.
+﻿//! Stack-based overlay: dismiss scrim + positioned column of items.
 
 use crate::style::ContextMenuStyle;
 
@@ -28,10 +28,6 @@ pub enum MenuItem<Message: Clone> {
 }
 
 /// Fluent builder for a list of [`MenuItem`] values.
-///
-/// Use [`push`](Self::push) for titled entries that emit your `Message` on click (handle it in `update`).
-/// Use [`unavailable`](Self::unavailable) for non-action rows; pair with [`context_menu_overlay`]'s
-/// `on_disabled_press` so clicks are absorbed without closing the menu.
 pub struct ContextMenuBuilder<Message: Clone> {
     items: Vec<MenuItem<Message>>,
 }
@@ -41,7 +37,6 @@ impl<Message: Clone> ContextMenuBuilder<Message> {
         Self { items: Vec::new() }
     }
 
-    /// Append an actionable row with `title` and the message produced on primary click.
     pub fn push(mut self, title: impl Into<String>, message: Message) -> Self {
         self.items.push(MenuItem::Action {
             label: title.into(),
@@ -55,8 +50,6 @@ impl<Message: Clone> ContextMenuBuilder<Message> {
         self
     }
 
-    /// Append a non-action row (styled as disabled). Clicks are handled via `on_disabled_press`
-    /// in [`context_menu_overlay`]; ignore that message in `update` to keep the menu open.
     pub fn unavailable(mut self, title: impl Into<String>) -> Self {
         self.items.push(MenuItem::Disabled {
             label: title.into(),
@@ -77,16 +70,14 @@ impl<Message: Clone> Default for ContextMenuBuilder<Message> {
 
 /// Full-screen overlay: dimmed dismiss layer and a positioned menu column.
 ///
-/// Returns [`None`] when `open` is [`None`] so callers can use [`Stack::push_maybe`](iced::widget::Stack::push_maybe).
-///
-/// **`on_disabled_press`**: message emitted when the user primary-clicks a [`MenuItem::Disabled`] row.
-/// Use a dedicated variant (e.g. `Message::NoOp`) that your `update` ignores so the click does not
-/// fall through to the dismiss layer and close the menu.
+/// `on_inert_press`: used when a press is not captured by an action button; the framed panel is wrapped in
+/// [`mouse_area`](iced::widget::MouseArea) with this message so clicks do not reach the dismiss layer.
+/// Ignore it in `update` (e.g. `Message::NoOp`). Buttons capture first and keep their own messages.
 pub fn context_menu_overlay<'a, Message: Clone + 'a>(
     open: Option<ContextMenuOpen>,
     items: &'a [MenuItem<Message>],
     on_dismiss: Message,
-    on_disabled_press: Message,
+    on_inert_press: Message,
     viewport: iced::Size,
     style: &'a ContextMenuStyle,
 ) -> Option<Element<'a, Message>> {
@@ -94,7 +85,7 @@ pub fn context_menu_overlay<'a, Message: Clone + 'a>(
     let anchor = clamp_anchor(open.at, items, viewport, style);
 
     let dismiss = mouse_area(
-        container(Space::new(Length::Fill, Length::Fill)).style(
+        container(Space::new().width(Length::Fill).height(Length::Fill)).style(
             move |_theme: &Theme| container::Style {
                 background: Some(style.dismiss_scrim.into()),
                 ..Default::default()
@@ -103,7 +94,7 @@ pub fn context_menu_overlay<'a, Message: Clone + 'a>(
     )
     .on_press(on_dismiss.clone());
 
-    let panel = menu_panel(items, style, on_disabled_press);
+    let panel = menu_panel(items, style, on_inert_press);
 
     let positioned = container(panel)
         .padding(Padding {
@@ -152,7 +143,7 @@ fn clamp_anchor<Message: Clone>(
 fn menu_panel<'a, Message: Clone + 'a>(
     items: &'a [MenuItem<Message>],
     style: &'a ContextMenuStyle,
-    on_disabled_press: Message,
+    on_inert_press: Message,
 ) -> Element<'a, Message> {
     let mut col = column![].spacing(style.row_spacing);
 
@@ -163,50 +154,53 @@ fn menu_panel<'a, Message: Clone + 'a>(
             }
             MenuItem::Separator => {
                 col = col.push(
-                    container(Space::new(Length::Fill, Length::Fixed(style.separator_height)))
-                        .padding(Padding {
-                            top: style.separator_margin_vertical,
-                            right: 0.0,
-                            bottom: style.separator_margin_vertical,
-                            left: 0.0,
-                        })
-                        .style(move |_theme: &Theme| container::Style {
-                            background: Some(style.separator_color.into()),
-                            ..Default::default()
-                        }),
+                    container(
+                        Space::new()
+                            .width(Length::Fill)
+                            .height(Length::Fixed(style.separator_height)),
+                    )
+                    .padding(Padding {
+                        top: style.separator_margin_vertical,
+                        right: 0.0,
+                        bottom: style.separator_margin_vertical,
+                        left: 0.0,
+                    })
+                    .style(move |_theme: &Theme| container::Style {
+                        background: Some(style.separator_color.into()),
+                        ..Default::default()
+                    }),
                 );
             }
             MenuItem::Disabled { label } => {
-                let noop = on_disabled_press.clone();
-                let label = label.clone();
                 col = col.push(
-                    mouse_area(
-                        container(
-                            text(label)
-                                .size(style.label_size)
-                                .style(move |_theme: &Theme| text::Style {
-                                    color: Some(style.disabled_color),
-                                }),
-                        )
-                        .padding([4.0, 8.0])
-                        .width(Length::Fill),
+                    container(
+                        text(label.clone())
+                            .size(style.label_size)
+                            .style(move |_theme: &Theme| text::Style {
+                                color: Some(style.disabled_color),
+                            }),
                     )
-                    .on_press(noop),
+                    .padding([4.0, 8.0])
+                    .width(Length::Fill),
                 );
             }
         }
     }
 
-    container(col)
-        .padding(style.panel_padding)
-        .width(Length::Fixed(style.min_width))
-        .style(move |_theme: &Theme| container::Style {
-            background: Some(style.panel_background.into()),
-            border: style.panel_border(),
-            shadow: style.panel_shadow(),
-            ..Default::default()
-        })
-        .into()
+    let noop = on_inert_press;
+    mouse_area(
+        container(col)
+            .padding(style.panel_padding)
+            .width(Length::Fixed(style.min_width))
+            .style(move |_theme: &Theme| container::Style {
+                background: Some(style.panel_background.into()),
+                border: style.panel_border(),
+                shadow: style.panel_shadow(),
+                ..Default::default()
+            }),
+    )
+    .on_press(noop)
+    .into()
 }
 
 fn action_row<'a, Message: Clone + 'a>(
