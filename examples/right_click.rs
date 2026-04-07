@@ -4,10 +4,10 @@
 //! Press Escape or click the dimmed area to dismiss.
 
 use iced::keyboard;
-use iced::widget::{center, column, container, mouse_area, text, Stack};
+use iced::widget::{Stack, center, column, container, mouse_area, text};
 use iced::{Element, Length, Point, Size, Task};
 use iced_context_menu::{
-    context_menu_overlay, ContextMenuBuilder, ContextMenuOpen, ContextMenuStyle, MenuItem,
+    ContextMenuBuilder, ContextMenuOpen, ContextMenuStyle, MenuItem, context_menu_overlay,
 };
 
 fn main() -> iced::Result {
@@ -43,6 +43,15 @@ struct State {
     menu_style: ContextMenuStyle,
 }
 
+fn build_context_menu_state() -> Vec<MenuItem<Message>> {
+    ContextMenuBuilder::new()
+        .push("Copy", Message::Copy)
+        .push("Paste", Message::Paste)
+        .separator()
+        .unavailable("Unavailable")
+        .build()
+}
+
 impl Default for State {
     fn default() -> Self {
         Self {
@@ -50,12 +59,7 @@ impl Default for State {
             cursor: Point::ORIGIN,
             viewport: Size::new(800.0, 600.0),
             status: String::from("Right-click the area."),
-            menu_items: ContextMenuBuilder::new()
-                .push("Copy", Message::Copy)
-                .push("Paste", Message::Paste)
-                .separator()
-                .unavailable("Unavailable")
-                .build(),
+            menu_items: build_context_menu_state(),
             menu_style: ContextMenuStyle::default(),
         }
     }
