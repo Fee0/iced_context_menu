@@ -12,7 +12,8 @@ use iced::mouse;
 use iced::{Pixels, Point, Rectangle, Size};
 
 pub(crate) const SUBMENU_CHEVRON: &str = "›";
-pub(crate) const SUBMENU_CHEVRON_WIDTH: f32 = 18.0;
+/// Reserved width for the submenu glyph (padding is separate in `panel_content_width`).
+pub(crate) const SUBMENU_CHEVRON_WIDTH: f32 = 12.0;
 
 pub(crate) type Layout<'a> = iced::advanced::Layout<'a>;
 
@@ -146,17 +147,15 @@ pub(crate) fn layout_panel<Renderer: text::Renderer>(
                     style.row_spacing
                 },
             ))
-            .move_to(Point::new(
-                style.panel_padding + style.border_width,
-                style.panel_padding + style.border_width + g.y_offset,
-            ))
+            .move_to(Point::new(0.0, style.panel_padding + g.y_offset))
         })
         .collect();
 
     let inner = layout::Node::with_children(
-        Size::new(width, content_h + style.panel_padding * 2.0 + border),
+        Size::new(width, content_h + style.panel_padding * 2.0),
         row_nodes,
-    );
+    )
+    .move_to(Point::new(style.border_width, style.border_width));
 
     let panel = layout::Node::with_children(Size::new(panel_w, panel_h), vec![inner])
         .move_to(Point::new(x, y));
@@ -221,12 +220,7 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
             if !matches!(node, MenuNode::Separator) {
                 renderer.fill_quad(
                     renderer::Quad {
-                        bounds: Rectangle {
-                            x: row_bounds.x + style.border_width,
-                            y: row_bounds.y,
-                            width: row_bounds.width - style.border_width * 2.0,
-                            height: row_bounds.height,
-                        },
+                        bounds: row_bounds,
                         border: border::rounded(4.0),
                         ..renderer::Quad::default()
                     },
@@ -299,22 +293,21 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
                     style.label_color,
                     clip_bounds,
                 );
+                let chevron_x =
+                    row_bounds.x + row_bounds.width - style.panel_padding - SUBMENU_CHEVRON_WIDTH;
                 renderer.fill_text(
                     text::Text {
                         content: SUBMENU_CHEVRON.to_string(),
-                        bounds: Size::new(f32::INFINITY, row_bounds.height),
+                        bounds: Size::new(SUBMENU_CHEVRON_WIDTH, row_bounds.height),
                         size: text_size,
                         line_height,
                         font,
-                        align_x: text::Alignment::Right,
+                        align_x: text::Alignment::Center,
                         align_y: alignment::Vertical::Center,
                         shaping: text::Shaping::default(),
                         wrapping: text::Wrapping::None,
                     },
-                    Point::new(
-                        row_bounds.x + row_bounds.width - style.panel_padding,
-                        row_bounds.center_y(),
-                    ),
+                    Point::new(chevron_x, row_bounds.center_y()),
                     style.label_color,
                     clip_bounds,
                 );
