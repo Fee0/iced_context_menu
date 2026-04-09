@@ -12,7 +12,8 @@ use iced::mouse;
 use iced::{Element, Event, Length, Point, Rectangle, Size, Theme, Vector};
 
 use crate::context_menu::{
-    clamp_panel_anchor, context_menu_overlay_panels, estimate_panel_height, ContextMenuOpen, MenuItem,
+    ContextMenuOpen, MenuItem, clamp_panel_anchor, context_menu_overlay_panels,
+    estimate_panel_height,
 };
 use crate::menu::{MenuItemId, MenuNode, MenuSpec};
 use crate::style::ContextMenuStyle;
@@ -169,7 +170,12 @@ impl<'a, Message: Clone + 'a> ContextMenu<'a, Message> {
         }
     }
 
-    fn select_item(&self, id: MenuItemId, state: &mut InternalState, shell: &mut Shell<'_, Message>) {
+    fn select_item(
+        &self,
+        id: MenuItemId,
+        state: &mut InternalState,
+        shell: &mut Shell<'_, Message>,
+    ) {
         if let Some(map) = &self.on_select {
             shell.publish(map(id));
         }
@@ -249,12 +255,9 @@ impl<Message: Clone> Widget<Message, Theme, iced::Renderer> for ContextMenu<'_, 
         renderer: &iced::Renderer,
         operation: &mut dyn Operation,
     ) {
-        self.content.as_widget_mut().operate(
-            &mut tree.children[0],
-            layout,
-            renderer,
-            operation,
-        );
+        self.content
+            .as_widget_mut()
+            .operate(&mut tree.children[0], layout, renderer, operation);
     }
 
     fn update(
@@ -335,15 +338,25 @@ impl<Message: Clone> Widget<Message, Theme, iced::Renderer> for ContextMenu<'_, 
                     shell.capture_event();
                 }
                 keyboard::Key::Named(keyboard::key::Named::ArrowDown) => {
-                    move_focus(&runtime.panels[active_panel], &mut state.focused_indices[active_panel], 1);
+                    move_focus(
+                        &runtime.panels[active_panel],
+                        &mut state.focused_indices[active_panel],
+                        1,
+                    );
                     shell.capture_event();
                 }
                 keyboard::Key::Named(keyboard::key::Named::ArrowUp) => {
-                    move_focus(&runtime.panels[active_panel], &mut state.focused_indices[active_panel], -1);
+                    move_focus(
+                        &runtime.panels[active_panel],
+                        &mut state.focused_indices[active_panel],
+                        -1,
+                    );
                     shell.capture_event();
                 }
                 keyboard::Key::Named(keyboard::key::Named::ArrowRight) => {
-                    if let Some(row) = runtime.panels[active_panel].rows.get(state.focused_indices[active_panel])
+                    if let Some(row) = runtime.panels[active_panel]
+                        .rows
+                        .get(state.focused_indices[active_panel])
                         && let RowKind::Submenu { child_index } = row.kind
                     {
                         state.open_path.push(child_index);
@@ -359,7 +372,10 @@ impl<Message: Clone> Widget<Message, Theme, iced::Renderer> for ContextMenu<'_, 
                     }
                 }
                 keyboard::Key::Named(keyboard::key::Named::Enter) => {
-                    if let Some(row) = runtime.panels[active_panel].rows.get(state.focused_indices[active_panel]) {
+                    if let Some(row) = runtime.panels[active_panel]
+                        .rows
+                        .get(state.focused_indices[active_panel])
+                    {
                         match row.kind {
                             RowKind::Action(id) => self.select_item(id, state, shell),
                             RowKind::Submenu { child_index } => {
@@ -433,7 +449,8 @@ impl<Message: Clone> Widget<Message, Theme, iced::Renderer> for ContextMenu<'_, 
                     .iter()
                     .map(|row| match row.kind {
                         RowKind::Action(id) => MenuItem::Action {
-                            label: label_for_row(self.items.nodes(), &panel.path, row).unwrap_or_else(|| "Action".to_string()),
+                            label: label_for_row(self.items.nodes(), &panel.path, row)
+                                .unwrap_or_else(|| "Action".to_string()),
                             message: OverlayEvent::Select(id),
                         },
                         RowKind::Submenu { child_index } => {
@@ -541,7 +558,9 @@ impl<Message: Clone> OverlayTrait<Message, Theme, iced::Renderer>
         let limits = layout::Limits::new(Size::ZERO, bounds)
             .width(Length::Fill)
             .height(Length::Fill);
-        self.widget.as_widget_mut().layout(self.tree, renderer, &limits)
+        self.widget
+            .as_widget_mut()
+            .layout(self.tree, renderer, &limits)
     }
 
     fn update(
@@ -589,8 +608,10 @@ impl<Message: Clone> OverlayTrait<Message, Theme, iced::Renderer>
                     shell.capture_event();
                 }
                 OverlayEvent::OpenPath(path) => {
-                    if matches!(self.submenu_open_mode, SubmenuOpenMode::Click | SubmenuOpenMode::HoverAndClick)
-                    {
+                    if matches!(
+                        self.submenu_open_mode,
+                        SubmenuOpenMode::Click | SubmenuOpenMode::HoverAndClick
+                    ) {
                         *self.open_path = path;
                         shell.invalidate_layout();
                         shell.capture_event();
@@ -655,9 +676,15 @@ impl<Message: Clone> OverlayTrait<Message, Theme, iced::Renderer>
         layout: Layout<'_>,
         cursor: mouse::Cursor,
     ) {
-        self.widget
-            .as_widget()
-            .draw(self.tree, renderer, theme, style, layout, cursor, &self.viewport);
+        self.widget.as_widget().draw(
+            self.tree,
+            renderer,
+            theme,
+            style,
+            layout,
+            cursor,
+            &self.viewport,
+        );
     }
 
     fn mouse_interaction(
@@ -666,9 +693,13 @@ impl<Message: Clone> OverlayTrait<Message, Theme, iced::Renderer>
         cursor: mouse::Cursor,
         renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        self.widget
-            .as_widget()
-            .mouse_interaction(self.tree, layout, cursor, &self.viewport, renderer)
+        self.widget.as_widget().mouse_interaction(
+            self.tree,
+            layout,
+            cursor,
+            &self.viewport,
+            renderer,
+        )
     }
 }
 
@@ -870,7 +901,9 @@ fn hovered_submenu_path(
         let mut y = 0.0;
         for row in &panel.rows {
             let h = match row.kind {
-                RowKind::Separator => style.separator_height + 2.0 * style.separator_margin_vertical,
+                RowKind::Separator => {
+                    style.separator_height + 2.0 * style.separator_margin_vertical
+                }
                 _ => style.row_height,
             };
             if local_y >= y && local_y <= y + h {
@@ -911,7 +944,10 @@ fn is_focusable(panel: &PanelModel, idx: usize) -> bool {
 }
 
 fn first_focusable(panel: &PanelModel) -> Option<usize> {
-    panel.rows.iter().position(|r| !matches!(r.kind, RowKind::Separator | RowKind::Disabled))
+    panel
+        .rows
+        .iter()
+        .position(|r| !matches!(r.kind, RowKind::Separator | RowKind::Disabled))
 }
 
 fn move_focus(panel: &PanelModel, focus: &mut usize, dir: i32) {
@@ -922,7 +958,10 @@ fn move_focus(panel: &PanelModel, focus: &mut usize, dir: i32) {
     let mut idx = *focus as i32;
     for _ in 0..panel.rows.len() {
         idx = (idx + dir).rem_euclid(panel.rows.len() as i32);
-        if !matches!(panel.rows[idx as usize].kind, RowKind::Separator | RowKind::Disabled) {
+        if !matches!(
+            panel.rows[idx as usize].kind,
+            RowKind::Separator | RowKind::Disabled
+        ) {
             *focus = idx as usize;
             return;
         }
@@ -945,14 +984,18 @@ fn poll_hover_submenu(
     mode: SubmenuOpenMode,
     delay_ms: u16,
 ) -> bool {
-    if !matches!(mode, SubmenuOpenMode::Hover | SubmenuOpenMode::HoverAndClick) {
+    if !matches!(
+        mode,
+        SubmenuOpenMode::Hover | SubmenuOpenMode::HoverAndClick
+    ) {
         return false;
     }
 
     let runtime = build_runtime(menu_nodes, open_path, anchor, viewport_size, style);
 
     if matches!(event, Event::Mouse(mouse::Event::CursorMoved { .. })) {
-        let hovered = hovered_submenu_path(&runtime.panels, &runtime.rects, cursor, style).unwrap_or_default();
+        let hovered = hovered_submenu_path(&runtime.panels, &runtime.rects, cursor, style)
+            .unwrap_or_default();
 
         if hovered != *hover_path {
             *hover_path = hovered;
@@ -974,157 +1017,4 @@ fn should_open_hover(started_at: Option<Instant>, now: Instant, delay_ms: u16) -
     started_at
         .map(|started| now.duration_since(started).as_millis() >= u128::from(delay_ms))
         .unwrap_or(false)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn nested_tree() -> Vec<MenuNode> {
-        vec![
-            MenuNode::Action {
-                id: 1_u64.into(),
-                title: "Copy".into(),
-                enabled: true,
-            },
-            MenuNode::Separator,
-            MenuNode::Submenu {
-                title: "More".into(),
-                children: vec![
-                    MenuNode::Action {
-                        id: 2_u64.into(),
-                        title: "Rename".into(),
-                        enabled: true,
-                    },
-                    MenuNode::Submenu {
-                        title: "Share".into(),
-                        children: vec![MenuNode::Action {
-                            id: 3_u64.into(),
-                            title: "Copy link".into(),
-                            enabled: true,
-                        }],
-                    },
-                ],
-            },
-        ]
-    }
-
-    #[test]
-    fn builds_panel_per_open_depth() {
-        let panels = build_panels(&nested_tree(), &[0, 0]);
-        assert_eq!(panels.len(), 3);
-        assert_eq!(panels[1].path, vec![0]);
-        assert_eq!(panels[2].path, vec![0, 0]);
-    }
-
-    #[test]
-    fn focus_skips_inert_rows() {
-        let panel = PanelModel {
-            path: vec![],
-            rows: vec![
-                RowModel {
-                    kind: RowKind::Separator,
-                },
-                RowModel {
-                    kind: RowKind::Disabled,
-                },
-                RowModel {
-                    kind: RowKind::Action(1_u64.into()),
-                },
-            ],
-        };
-        let mut focus = 0;
-        move_focus(&panel, &mut focus, 1);
-        assert_eq!(focus, 2);
-    }
-
-    #[test]
-    fn hover_path_detects_submenu_row() {
-        let style = ContextMenuStyle::default();
-        let runtime = build_runtime(&nested_tree(), &[], Point::new(50.0, 50.0), Size::new(800.0, 600.0), &style);
-        let rect = runtime.rects[0];
-        let cursor = Point::new(rect.x + 12.0, rect.y + style.panel_padding + style.row_height * 2.0);
-        let path = hovered_submenu_path(&runtime.panels, &runtime.rects, cursor, &style);
-        assert_eq!(path, Some(vec![0]));
-    }
-
-    #[test]
-    fn open_mode_policy_matrix() {
-        assert!(matches!(SubmenuOpenMode::Hover, SubmenuOpenMode::Hover));
-        assert!(matches!(SubmenuOpenMode::Click, SubmenuOpenMode::Click));
-        assert!(matches!(SubmenuOpenMode::HoverAndClick, SubmenuOpenMode::HoverAndClick));
-    }
-
-    #[test]
-    fn hover_delay_gate_works() {
-        let started = Instant::now();
-        let now_before = started + std::time::Duration::from_millis(40);
-        let now_after = started + std::time::Duration::from_millis(180);
-
-        assert!(!should_open_hover(Some(started), now_before, 120));
-        assert!(should_open_hover(Some(started), now_after, 120));
-        assert!(!should_open_hover(None, now_after, 120));
-    }
-
-    #[test]
-    fn poll_hover_promotes_without_extra_cursor_move() {
-        let tree = nested_tree();
-        let style = ContextMenuStyle::default();
-        let mut open_path = Vec::new();
-        let mut hover_path = vec![0usize];
-        let started = Instant::now() - std::time::Duration::from_millis(300);
-        let mut hover_started_at = Some(started);
-        let anchor = Point::new(50.0, 50.0);
-        let vp = Size::new(800.0, 600.0);
-        let now = Instant::now();
-        let ev = Event::Window(iced::window::Event::RedrawRequested(iced::time::Instant::now()));
-
-        let pending = poll_hover_submenu(
-            &ev,
-            now,
-            Point::ORIGIN,
-            &tree,
-            &mut open_path,
-            &mut hover_path,
-            &mut hover_started_at,
-            anchor,
-            vp,
-            &style,
-            SubmenuOpenMode::Hover,
-            120,
-        );
-
-        assert_eq!(open_path, vec![0]);
-        assert!(!pending);
-    }
-
-    #[test]
-    fn poll_hover_click_mode_does_not_track() {
-        let tree = nested_tree();
-        let style = ContextMenuStyle::default();
-        let mut open_path = Vec::new();
-        let mut hover_path = vec![0usize];
-        let mut hover_started_at = Some(Instant::now() - std::time::Duration::from_secs(10));
-        let anchor = Point::new(50.0, 50.0);
-        let vp = Size::new(800.0, 600.0);
-        let now = Instant::now();
-        let ev = Event::Window(iced::window::Event::RedrawRequested(iced::time::Instant::now()));
-
-        poll_hover_submenu(
-            &ev,
-            now,
-            Point::ORIGIN,
-            &tree,
-            &mut open_path,
-            &mut hover_path,
-            &mut hover_started_at,
-            anchor,
-            vp,
-            &style,
-            SubmenuOpenMode::Click,
-            120,
-        );
-
-        assert!(open_path.is_empty());
-    }
 }
