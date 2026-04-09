@@ -1,4 +1,4 @@
-﻿use std::fmt;
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MenuItemId(pub u64);

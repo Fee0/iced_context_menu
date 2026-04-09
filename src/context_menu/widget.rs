@@ -1,0 +1,246 @@
+use std::marker::PhantomData;
+
+use super::menu::{MenuItemId, MenuSpec};
+use super::style::ContextMenuStyle;
+
+use super::panel::Layout;
+use super::root_overlay::RootOverlay;
+use super::state::{ContextMenuState, SubmenuOpenMode};
+
+use iced::advanced::layout;
+use iced::advanced::overlay;
+use iced::advanced::renderer;
+use iced::advanced::text;
+use iced::advanced::widget::tree::{self, Tree};
+use iced::advanced::widget::Widget;
+use iced::advanced::{Clipboard, Shell};
+use iced::mouse;
+use iced::time::Duration as IcedDuration;
+use iced::{Element, Event, Length, Rectangle, Size, Vector};
+
+/// Right-click wrapper that shows a [`MenuSpec`](super::menu::MenuSpec) in an overlay.
+pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
+    content: Element<'a, Message, Theme, Renderer>,
+    items: MenuSpec,
+    style: ContextMenuStyle,
+    submenu_mode: SubmenuOpenMode,
+    submenu_hover_delay: IcedDuration,
+    close_on_select: bool,
+    on_open: Option<Message>,
+    on_close: Option<Message>,
+    on_select: Option<Box<dyn Fn(MenuItemId) -> Message + 'a>>,
+}
+
+impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
+    pub fn new(content: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
+        Self {
+            content: content.into(),
+            items: MenuSpec::default(),
+            style: ContextMenuStyle::default(),
+            submenu_mode: SubmenuOpenMode::default(),
+            submenu_hover_delay: IcedDuration::from_millis(180),
+            close_on_select: true,
+            on_open: None,
+            on_close: None,
+            on_select: None,
+        }
+    }
+
+    pub fn items(mut self, spec: MenuSpec) -> Self {
+        self.items = spec;
+        self
+    }
+
+    pub fn style(mut self, style: ContextMenuStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    pub fn submenu_open_mode(mut self, mode: SubmenuOpenMode) -> Self {
+        self.submenu_mode = mode;
+        self
+    }
+
+    pub fn submenu_hover_delay_ms(mut self, ms: u64) -> Self {
+        self.submenu_hover_delay = IcedDuration::from_millis(ms);
+        self
+    }
+
+    pub fn close_on_select(mut self, close: bool) -> Self {
+        self.close_on_select = close;
+        self
+    }
+
+    pub fn on_open(mut self, msg: Message) -> Self {
+        self.on_open = Some(msg);
+        self
+    }
+
+    pub fn on_close(mut self, msg: Message) -> Self {
+        self.on_close = Some(msg);
+        self
+    }
+
+    pub fn on_select(mut self, f: impl Fn(MenuItemId) -> Message + 'a) -> Self {
+        self.on_select = Some(Box::new(f));
+        self
+    }
+}
+
+impl<'a, Message, Theme, Renderer> From<ContextMenu<'a, Message, Theme, Renderer>>
+    for Element<'a, Message, Theme, Renderer>
+where
+    Message: Clone + 'a,
+    Theme: 'a,
+    Renderer: 'a + text::Renderer,
+{
+    fn from(menu: ContextMenu<'a, Message, Theme, Renderer>) -> Self {
+        Element::new(menu)
+    }
+}
+
+impl<'a, Message: Clone, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for ContextMenu<'a, Message, Theme, Renderer>
+where
+    Renderer: text::Renderer,
+{
+    fn size(&self) -> Size<Length> {
+        self.content.as_widget().size()
+    }
+
+    fn layout(
+        &mut self,
+        tree: &mut Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.content
+            .as_widget_mut()
+            .layout(&mut tree.children[0], renderer, limits)
+    }
+
+    fn draw(
+        &self,
+        tree: &Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+    ) {
+        self.content.as_widget().draw(
+            &tree.children[0],
+            renderer,
+            theme,
+            style,
+            layout,
+            cursor,
+            viewport,
+        );
+    }
+
+    fn tag(&self) -> tree::Tag {
+        tree::Tag::of::<ContextMenuState>()
+    }
+
+    fn state(&self) -> tree::State {
+        tree::State::new(ContextMenuState::default())
+    }
+
+    fn children(&self) -> Vec<Tree> {
+        vec![Tree::new(&self.content)]
+    }
+
+    fn diff(&self, tree: &mut Tree) {
+        tree.diff_children(std::slice::from_ref(&self.content));
+    }
+
+    fn update(
+        &mut self,
+        tree: &mut Tree,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+        clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
+    ) {
+        let state = tree.state.downcast_mut::<ContextMenuState>();
+
+        self.content.as_widget_mut().update(
+            &mut tree.children[0],
+            event,
+            layout,
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            viewport,
+        );
+
+        if !state.open {
+            if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
+                if cursor.is_over(layout.bounds()) {
+                    if let Some(p) = cursor.position() {
+                        state.open = true;
+                        state.anchor = p;
+                        state.reset_interaction();
+                        state.ensure_focus(self.items.nodes());
+                        if let Some(m) = self.on_open.clone() {
+                            shell.publish(m);
+                        }
+                        shell.capture_event();
+                        shell.request_redraw();
+                    }
+                }
+            }
+        }
+    }
+
+    fn mouse_interaction(
+        &self,
+        tree: &Tree,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        viewport: &Rectangle,
+        renderer: &Renderer,
+    ) -> mouse::Interaction {
+        self.content.as_widget().mouse_interaction(
+            &tree.children[0],
+            layout,
+            cursor,
+            viewport,
+            renderer,
+        )
+    }
+
+    fn overlay<'b>(
+        &'b mut self,
+        tree: &'b mut Tree,
+        _layout: Layout<'b>,
+        _renderer: &Renderer,
+        viewport: &Rectangle,
+        translation: Vector,
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
+        let state = tree.state.downcast_mut::<ContextMenuState>();
+        if !state.open {
+            return None;
+        }
+
+        Some(overlay::Element::new(Box::new(RootOverlay::<Message, Theme, Renderer> {
+            state,
+            items: &self.items,
+            style: &self.style,
+            submenu_mode: self.submenu_mode,
+            submenu_hover_delay: self.submenu_hover_delay,
+            close_on_select: self.close_on_select,
+            on_close: self.on_close.clone(),
+            on_select: self.on_select.as_deref(),
+            viewport: *viewport,
+            translation,
+            _marker: PhantomData,
+        })))
+    }
+}
