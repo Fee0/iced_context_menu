@@ -56,6 +56,41 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
         self
     }
 
+    pub fn panel_padding(mut self, padding: f32) -> Self {
+        self.style.panel_padding = padding;
+        self
+    }
+
+    pub fn min_width(mut self, width: f32) -> Self {
+        self.style.min_width = width;
+        self
+    }
+
+    pub fn label_size(mut self, size: f32) -> Self {
+        self.style.label_size = size;
+        self
+    }
+
+    pub fn row_height(mut self, height: f32) -> Self {
+        self.style.row_height = height;
+        self
+    }
+
+    pub fn row_spacing(mut self, spacing: f32) -> Self {
+        self.style.row_spacing = spacing;
+        self
+    }
+
+    pub fn border_radius(mut self, radius: f32) -> Self {
+        self.style.border_radius = radius;
+        self
+    }
+
+    pub fn border_width(mut self, width: f32) -> Self {
+        self.style.border_width = width;
+        self
+    }
+
     pub fn submenu_open_mode(mut self, mode: SubmenuOpenMode) -> Self {
         self.submenu_mode = mode;
         self

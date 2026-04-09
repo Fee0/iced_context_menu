@@ -56,6 +56,57 @@ impl Default for ContextMenuStyle {
 }
 
 impl ContextMenuStyle {
+    /// Dark palette for demos; identical to [`Default::default`].
+    pub fn example_dark() -> Self {
+        Self::default()
+    }
+
+    /// Light panel with dark text (example / reference style).
+    pub fn example_light() -> Self {
+        Self {
+            panel_background: Color::from_rgb(0.96, 0.96, 0.98),
+            panel_border: Color::from_rgb(0.78, 0.78, 0.84),
+            border_width: 1.0,
+            border_radius: 6.0,
+            panel_padding: 6.0,
+            min_width: 160.0,
+            row_spacing: 2.0,
+            label_size: 14.0,
+            label_color: Color::from_rgb(0.12, 0.12, 0.14),
+            disabled_color: Color::from_rgb(0.55, 0.55, 0.58),
+            separator_color: Color::from_rgb(0.82, 0.82, 0.88),
+            separator_height: 1.0,
+            separator_margin_vertical: 6.0,
+            row_height: 28.0,
+            row_hover_background: Color::from_rgb(0.82, 0.86, 0.94),
+            row_pressed_background: Color::from_rgb(0.72, 0.76, 0.88),
+            dismiss_scrim: Color::from_rgba(0.0, 0.0, 0.0, 0.12),
+        }
+    }
+
+    /// Warm dark panel with cream text (example / reference style).
+    pub fn example_warm() -> Self {
+        Self {
+            panel_background: Color::from_rgb(0.18, 0.14, 0.12),
+            panel_border: Color::from_rgb(0.38, 0.30, 0.26),
+            border_width: 1.0,
+            border_radius: 6.0,
+            panel_padding: 6.0,
+            min_width: 160.0,
+            row_spacing: 2.0,
+            label_size: 14.0,
+            label_color: Color::from_rgb(0.95, 0.90, 0.82),
+            disabled_color: Color::from_rgb(0.55, 0.48, 0.42),
+            separator_color: Color::from_rgb(0.38, 0.30, 0.26),
+            separator_height: 1.0,
+            separator_margin_vertical: 6.0,
+            row_height: 28.0,
+            row_hover_background: Color::from_rgb(0.42, 0.30, 0.22),
+            row_pressed_background: Color::from_rgb(0.35, 0.26, 0.20),
+            dismiss_scrim: Color::from_rgba(0.0, 0.0, 0.0, 0.18),
+        }
+    }
+
     pub(crate) fn panel_border(&self) -> Border {
         Border {
             width: self.border_width,
