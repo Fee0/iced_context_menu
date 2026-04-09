@@ -1,6 +1,8 @@
 ﻿use iced::widget::{column, container, text};
 use iced::{Element, Length, Task};
-use iced_context_menu::{ContextMenu, MenuItemId, MenuNode, MenuSpec, SubmenuOpenMode};
+use iced_context_menu::{
+    ContextMenu, MenuItemId, MenuNode, MenuSpec, SubmenuOpenMode,
+};
 
 fn main() -> iced::Result {
     iced::application(|| State::default(), update, view).run()
@@ -80,7 +82,7 @@ fn view(state: &State) -> Element<'_, Message> {
         .on_open(Message::MenuOpened)
         .on_close(Message::MenuClosed)
         .on_select(Message::MenuSelected)
-        .submenu_open_mode(SubmenuOpenMode::HoverAndClick)
+        .submenu_open_mode(SubmenuOpenMode::Hover)
         .submenu_hover_delay_ms(180)
         .close_on_select(true)
         .into()

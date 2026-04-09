@@ -3,7 +3,7 @@
 use iced::border::Radius;
 use iced::{Border, Color, Shadow, Vector};
 
-/// Colors and measurements for [`crate::context_menu_overlay`](crate::context_menu_overlay).
+/// Colors and measurements for [`ContextMenu`](crate::ContextMenu) overlays.
 #[derive(Debug, Clone)]
 pub struct ContextMenuStyle {
     /// Panel fill behind menu items.

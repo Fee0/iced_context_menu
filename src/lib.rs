@@ -6,15 +6,7 @@
 mod context_menu;
 mod menu;
 mod style;
-mod widget;
 
+pub use context_menu::{ContextMenu, ContextMenuState, SubmenuOpenMode};
 pub use menu::{MenuItemId, MenuNode, MenuSpec};
 pub use style::ContextMenuStyle;
-pub use widget::{ContextMenu, SubmenuOpenMode};
-
-pub mod advanced {
-    //! Unstable low-level APIs. Prefer using `ContextMenu`.
-    pub use crate::context_menu::{
-        ContextMenuBuilder, ContextMenuOpen, MenuItem, context_menu_overlay,
-    };
-}
