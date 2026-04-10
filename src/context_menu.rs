@@ -3,10 +3,11 @@
 //! Submodules live in `src/context_menu/*.rs` (Rust `foo.rs` + `foo/` pattern).
 
 mod menu;
-mod style;
 mod panel;
 mod root_overlay;
 mod state;
+mod style;
+pub mod submenu_chevron;
 mod submenu_overlay;
 mod widget;
 

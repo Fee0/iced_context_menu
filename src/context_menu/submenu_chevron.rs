@@ -23,11 +23,11 @@ impl SubmenuChevronIcon {
     pub fn handle(self) -> svg::Handle {
         let bytes: &'static [u8] = match self {
             Self::ArrowNextSmall => {
-                include_bytes!("../svg/arrow-next-small-svgrepo-com.svg")
+                include_bytes!("../../svg/arrow-next-small-svgrepo-com.svg")
             }
-            Self::ArrowNext => include_bytes!("../svg/arrow-next-svgrepo-com.svg"),
-            Self::ArrowRight333 => include_bytes!("../svg/arrow-right-333-svgrepo-com.svg"),
-            Self::ArrowRight336 => include_bytes!("../svg/arrow-right-336-svgrepo-com.svg"),
+            Self::ArrowNext => include_bytes!("../../svg/arrow-next-svgrepo-com.svg"),
+            Self::ArrowRight333 => include_bytes!("../../svg/arrow-right-333-svgrepo-com.svg"),
+            Self::ArrowRight336 => include_bytes!("../../svg/arrow-right-336-svgrepo-com.svg"),
         };
         svg::Handle::from_memory(Cow::Borrowed(bytes))
     }
