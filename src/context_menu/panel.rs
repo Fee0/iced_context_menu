@@ -5,15 +5,12 @@ use super::style::ContextMenuStyle;
 
 use iced::advanced::layout;
 use iced::advanced::renderer;
+use iced::advanced::svg;
 use iced::advanced::text::{self, Paragraph};
 use iced::alignment;
 use iced::border;
 use iced::mouse;
 use iced::{Pixels, Point, Rectangle, Size};
-
-pub(crate) const SUBMENU_CHEVRON: &str = "›";
-/// Reserved width for the submenu glyph (padding is separate in `panel_content_width`).
-pub(crate) const SUBMENU_CHEVRON_WIDTH: f32 = 12.0;
 
 pub(crate) type Layout<'a> = iced::advanced::Layout<'a>;
 
@@ -96,7 +93,7 @@ fn panel_content_width<Renderer: text::Renderer>(
         };
         let lw = measure_label_width(renderer, style, label);
         let extra = match node {
-            MenuNode::Submenu { .. } => SUBMENU_CHEVRON_WIDTH,
+            MenuNode::Submenu { .. } => style.submenu_chevron_slot_width,
             _ => 0.0,
         };
         let h_margin = style.panel_padding + style.row_label_inset;
@@ -164,7 +161,7 @@ pub(crate) fn layout_panel<Renderer: text::Renderer>(
     (panel, panel_w, panel_h)
 }
 
-pub(crate) fn draw_panel<Renderer: text::Renderer>(
+pub(crate) fn draw_panel<Renderer>(
     renderer: &mut Renderer,
     style: &ContextMenuStyle,
     nodes: &[MenuNode],
@@ -175,7 +172,7 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
     clip_bounds: Rectangle,
     depth: usize,
 ) where
-    Renderer: text::Renderer,
+    Renderer: text::Renderer + svg::Renderer,
 {
     let bounds = layout.bounds();
     renderer.fill_quad(
@@ -289,13 +286,16 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
                 );
             }
             MenuNode::Submenu { title, .. } => {
+                // Match line box to row height so label and larger chevron share the same vertical
+                // center as each other and the hover strip (default Relative line height differs per size).
+                let row_line_height = text::LineHeight::Absolute(Pixels(row_bounds.height));
                 let label_x = row_bounds.x + style.panel_padding + style.row_label_inset;
                 renderer.fill_text(
                     text::Text {
                         content: title.clone(),
                         bounds: Size::new(f32::INFINITY, row_bounds.height),
                         size: text_size,
-                        line_height,
+                        line_height: row_line_height,
                         font,
                         align_x: text::Alignment::Left,
                         align_y: alignment::Vertical::Center,
@@ -306,24 +306,29 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
                     style.label_color,
                     clip_bounds,
                 );
-                let chevron_x = row_bounds.x + row_bounds.width
+                let handle = style.submenu_chevron_icon.handle();
+                let natural = renderer.measure_svg(&handle);
+                let nw = natural.width.max(1) as f32;
+                let nh = natural.height.max(1) as f32;
+                let slot = style.submenu_chevron_slot_width;
+                let max_w = slot;
+                let max_h = row_bounds.height * 0.92;
+                let scale = (max_w / nw).min(max_h / nh);
+                let w = nw * scale;
+                let h = nh * scale;
+                let column_left = row_bounds.x + row_bounds.width
                     - style.panel_padding
                     - style.row_label_inset
-                    - SUBMENU_CHEVRON_WIDTH;
-                renderer.fill_text(
-                    text::Text {
-                        content: SUBMENU_CHEVRON.to_string(),
-                        bounds: Size::new(SUBMENU_CHEVRON_WIDTH, row_bounds.height),
-                        size: text_size,
-                        line_height,
-                        font,
-                        align_x: text::Alignment::Center,
-                        align_y: alignment::Vertical::Center,
-                        shaping: text::Shaping::default(),
-                        wrapping: text::Wrapping::None,
-                    },
-                    Point::new(chevron_x, row_bounds.center_y()),
-                    style.label_color,
+                    - slot;
+                let svg_bounds = Rectangle {
+                    x: column_left + (slot - w) * 0.5,
+                    y: row_bounds.y + (row_bounds.height - h) * 0.5,
+                    width: w,
+                    height: h,
+                };
+                renderer.draw_svg(
+                    svg::Svg::new(handle).color(style.label_color),
+                    svg_bounds,
                     clip_bounds,
                 );
             }

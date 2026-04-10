@@ -9,6 +9,7 @@ use super::state::{sync_open_path_for_focus, ContextMenuState, SubmenuOpenMode};
 use iced::advanced::layout;
 use iced::advanced::overlay;
 use iced::advanced::renderer;
+use iced::advanced::svg;
 use iced::advanced::text;
 use iced::advanced::{Clipboard, Shell};
 use iced::keyboard;
@@ -78,8 +79,8 @@ pub(crate) struct SubmenuOverlay<'a, 'b, Message, Theme, Renderer> {
     pub(crate) _marker: PhantomData<(Theme, Renderer)>,
 }
 
-impl<Message: Clone, Theme, Renderer: text::Renderer> overlay::Overlay<Message, Theme, Renderer>
-    for SubmenuOverlay<'_, '_, Message, Theme, Renderer>
+impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
+    overlay::Overlay<Message, Theme, Renderer> for SubmenuOverlay<'_, '_, Message, Theme, Renderer>
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         if self.state.open_path.len() <= self.depth {

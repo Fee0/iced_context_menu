@@ -10,6 +10,7 @@ use super::state::{ContextMenuState, SubmenuOpenMode};
 use iced::advanced::layout;
 use iced::advanced::overlay;
 use iced::advanced::renderer;
+use iced::advanced::svg;
 use iced::advanced::text;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Widget;
@@ -127,7 +128,7 @@ impl<'a, Message, Theme, Renderer> From<ContextMenu<'a, Message, Theme, Renderer
 where
     Message: Clone + 'a,
     Theme: 'a,
-    Renderer: 'a + text::Renderer,
+    Renderer: 'a + text::Renderer + svg::Renderer,
 {
     fn from(menu: ContextMenu<'a, Message, Theme, Renderer>) -> Self {
         Element::new(menu)
@@ -137,7 +138,7 @@ where
 impl<'a, Message: Clone, Theme, Renderer> Widget<Message, Theme, Renderer>
     for ContextMenu<'a, Message, Theme, Renderer>
 where
-    Renderer: text::Renderer,
+    Renderer: text::Renderer + svg::Renderer,
 {
     fn size(&self) -> Size<Length> {
         self.content.as_widget().size()

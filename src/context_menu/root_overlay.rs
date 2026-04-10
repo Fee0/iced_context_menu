@@ -13,6 +13,7 @@ use super::submenu_overlay::SubmenuOverlay;
 use iced::advanced::layout;
 use iced::advanced::overlay;
 use iced::advanced::renderer;
+use iced::advanced::svg;
 use iced::advanced::text;
 use iced::advanced::{Clipboard, Shell};
 use iced::keyboard;
@@ -37,8 +38,8 @@ pub(crate) struct RootOverlay<'a, 'b, Message, Theme, Renderer> {
     pub(crate) _marker: PhantomData<(Theme, Renderer)>,
 }
 
-impl<Message: Clone, Theme, Renderer: text::Renderer> overlay::Overlay<Message, Theme, Renderer>
-    for RootOverlay<'_, '_, Message, Theme, Renderer>
+impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
+    overlay::Overlay<Message, Theme, Renderer> for RootOverlay<'_, '_, Message, Theme, Renderer>
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         let nodes = self.items.nodes();
@@ -178,7 +179,9 @@ impl<Message: Clone, Theme, Renderer: text::Renderer> overlay::Overlay<Message, 
     }
 }
 
-impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer> RootOverlay<'a, 'b, Message, Theme, Renderer> {
+impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
+    RootOverlay<'a, 'b, Message, Theme, Renderer>
+{
     fn handle_common(
         &mut self,
         event: &Event,

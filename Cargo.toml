@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-iced = { version = "0.14", features = ["advanced"] }
+iced = { version = "0.14", features = ["advanced", "svg"] }
 
 [[example]]
 name = "right_click"
 path = "examples/right_click.rs"
 
 [dev-dependencies]
-iced = { version = "0.14", features = ["advanced"] }
+iced = { version = "0.14", features = ["advanced", "svg"] }
 
 
