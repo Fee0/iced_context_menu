@@ -1,7 +1,7 @@
-﻿use iced::widget::{checkbox, column, container, radio, row, rule, scrollable, slider, text};
+﻿use iced::widget::{button, checkbox, column, container, radio, row, rule, scrollable, slider, text};
 use iced::{Color, Element, Length, Task};
 use iced_context_menu::{
-    ContextMenu, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, SubmenuOpenMode,
+    ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, SubmenuOpenMode,
 };
 
 fn main() -> iced::Result {
@@ -13,6 +13,13 @@ enum StylePreset {
     Dark,
     Light,
     Warm,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum DemoOpenMode {
+    #[default]
+    RightClick,
+    Programmatic,
 }
 
 fn merged_style(state: &State) -> ContextMenuStyle {
@@ -54,6 +61,8 @@ enum Message {
     ScrimAlpha(f32),
     StylePreset(StylePreset),
     LongLabel(bool),
+    DemoOpenMode(DemoOpenMode),
+    RequestProgrammaticOpen,
 }
 
 #[derive(Debug, Clone)]
@@ -74,6 +83,9 @@ struct State {
     scrim_alpha: f32,
     style_preset: StylePreset,
     long_label: bool,
+    demo_open_mode: DemoOpenMode,
+    /// One-shot: set from the button, cleared when the menu opens.
+    programmatic_open_pulse: bool,
 }
 
 impl Default for State {
@@ -95,6 +107,8 @@ impl Default for State {
             scrim_alpha: 0.15,
             style_preset: StylePreset::Dark,
             long_label: false,
+            demo_open_mode: DemoOpenMode::default(),
+            programmatic_open_pulse: false,
         }
     }
 }
@@ -158,7 +172,10 @@ fn build_menu(long_label: bool) -> MenuSpec<'static> {
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
     match message {
-        Message::MenuOpened => state.status = "Menu opened".to_string(),
+        Message::MenuOpened => {
+            state.status = "Menu opened".to_string();
+            state.programmatic_open_pulse = false;
+        }
         Message::MenuClosed => state.status = "Menu closed".to_string(),
         Message::MenuSelected(id) => {
             state.status = format!("Selected item {}", id);
@@ -178,6 +195,11 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::ScrimAlpha(v) => state.scrim_alpha = v,
         Message::StylePreset(p) => state.style_preset = p,
         Message::LongLabel(v) => state.long_label = v,
+        Message::DemoOpenMode(m) => {
+            state.demo_open_mode = m;
+            state.programmatic_open_pulse = false;
+        }
+        Message::RequestProgrammaticOpen => state.programmatic_open_pulse = true,
     }
 
     Task::none()
@@ -227,6 +249,22 @@ fn view(state: &State) -> Element<'_, Message> {
         checkbox(state.long_label)
             .label("Long first row label")
             .on_toggle(Message::LongLabel),
+        text("How the root menu opens:"),
+        column![
+            radio(
+                "Right-click on target (default)",
+                DemoOpenMode::RightClick,
+                Some(state.demo_open_mode),
+                Message::DemoOpenMode,
+            ),
+            radio(
+                "Programmatic only — use button on target",
+                DemoOpenMode::Programmatic,
+                Some(state.demo_open_mode),
+                Message::DemoOpenMode,
+            ),
+        ]
+        .spacing(4),
     ]
     .spacing(8);
 
@@ -330,7 +368,7 @@ fn view(state: &State) -> Element<'_, Message> {
     let controls = scrollable(
         column![
             text("Context menu settings").size(20),
-            text("Adjust values, then right-click the area below."),
+            text("Adjust values, then use the target area (right-click or programmatic open)."),
             rule::horizontal(10),
             behavior,
             rule::horizontal(10),
@@ -342,9 +380,21 @@ fn view(state: &State) -> Element<'_, Message> {
     .height(Length::Fill)
     .width(Length::Fill);
 
+    let open_hint = match state.demo_open_mode {
+        DemoOpenMode::RightClick => text("Right-click here").size(18),
+        DemoOpenMode::Programmatic => text("Programmatic mode — right-click does not open").size(18),
+    };
+
+    let maybe_open_btn = if state.demo_open_mode == DemoOpenMode::Programmatic {
+        button("Open menu (API)").on_press(Message::RequestProgrammaticOpen)
+    } else {
+        button("Open menu (API)").on_press_maybe(None)
+    };
+
     let target = container(
         column![
-            text("Right-click here").size(18),
+            open_hint,
+            maybe_open_btn,
             text("Keyboard: arrows, Enter, Escape when open."),
             text(&state.status).size(14),
         ]
@@ -358,9 +408,18 @@ fn view(state: &State) -> Element<'_, Message> {
 
     let content = row![controls, rule::vertical(10), target].spacing(0);
 
+    let open_mode = match state.demo_open_mode {
+        DemoOpenMode::RightClick => ContextMenuOpen::RightClick,
+        DemoOpenMode::Programmatic => ContextMenuOpen::Programmatic {
+            open: state.programmatic_open_pulse,
+            anchor: None,
+        },
+    };
+
     ContextMenu::new(content)
         .items(build_menu(state.long_label))
         .style(merged_style(state))
+        .opens_with(open_mode)
         .on_open(Message::MenuOpened)
         .on_close(Message::MenuClosed)
         .on_select(Message::MenuSelected)

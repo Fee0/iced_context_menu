@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use super::menu::{MenuItemId, MenuSpec};
+use super::menu::{MenuItemId, MenuNode, MenuSpec};
+use super::open::ContextMenuOpen;
 use super::style::ContextMenuStyle;
 
 use super::menu_overlay::MenuOverlay;
@@ -12,8 +13,8 @@ use iced::advanced::overlay;
 use iced::advanced::renderer;
 use iced::advanced::svg;
 use iced::advanced::text;
-use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Widget;
+use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::{Clipboard, Shell};
 use iced::mouse;
 use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector};
@@ -28,12 +29,17 @@ use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector
 /// builder methods (`panel_padding`, `row_label_inset`, [`Self::panel_shadow`], etc.). For any
 /// field without a dedicated method, use `let mut s = ContextMenuStyle::example_dark(); s.separator_color = …;`
 /// then `.style(s)`.
+///
+/// ## Opening the menu
+///
+/// By default the menu opens on right-click over the widget. Use [`Self::opens_with`] with
+/// [`ContextMenuOpen::Programmatic`] for parent-controlled open (see that variant’s docs).
 pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
     content: Element<'a, Message, Theme, Renderer>,
     items: MenuSpec<'a>,
     style: ContextMenuStyle,
+    open: ContextMenuOpen,
     submenu_mode: SubmenuOpenMode,
-    /// When true, reserve a left icon column and draw [`MenuNode`](super::menu::MenuNode) icons.
     icons_enabled: bool,
     close_on_select: bool,
     on_open: Option<Message>,
@@ -48,6 +54,7 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
             content: content.into(),
             items: MenuSpec::default(),
             style: ContextMenuStyle::default(),
+            open: ContextMenuOpen::default(),
             submenu_mode: SubmenuOpenMode::default(),
             icons_enabled: false,
             close_on_select: true,
@@ -149,7 +156,11 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
         self
     }
 
-    /// When enabled, rows reserve space for optional left icons so labels stay aligned.
+    pub fn opens_with(mut self, mode: ContextMenuOpen) -> Self {
+        self.open = mode;
+        self
+    }
+
     pub fn show_item_icons(mut self, show: bool) -> Self {
         self.icons_enabled = show;
         self
@@ -270,18 +281,28 @@ where
         );
 
         if !state.open {
-            if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
-                if cursor.is_over(layout.bounds()) {
-                    if let Some(p) = cursor.position() {
-                        state.open = true;
-                        state.anchor = p;
-                        state.reset_interaction();
-                        state.ensure_focus(self.items.nodes());
-                        if let Some(m) = self.on_open.clone() {
-                            shell.publish(m);
+            let nodes = self.items.nodes();
+            match self.open {
+                ContextMenuOpen::RightClick => {
+                    if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
+                        if cursor.is_over(layout.bounds()) {
+                            if let Some(p) = cursor.position() {
+                                open_menu_at(state, nodes, p, &self.on_open, shell);
+                            }
                         }
-                        shell.capture_event();
-                        shell.request_redraw();
+                    }
+                }
+                ContextMenuOpen::Programmatic { open, anchor } => {
+                    if open {
+                        let bounds = layout.bounds();
+                        let p = match anchor {
+                            Some(p) => p,
+                            None => cursor
+                                .position()
+                                .filter(|_| cursor.is_over(bounds))
+                                .unwrap_or_else(|| bounds_center(bounds)),
+                        };
+                        open_menu_at(state, nodes, p, &self.on_open, shell);
                     }
                 }
             }
@@ -318,7 +339,11 @@ where
             return None;
         }
 
-        Some(overlay::Element::new(Box::new(MenuOverlay::<Message, Theme, Renderer> {
+        Some(overlay::Element::new(Box::new(MenuOverlay::<
+            Message,
+            Theme,
+            Renderer,
+        > {
             state,
             items: &self.items,
             style: &self.style,
@@ -334,4 +359,29 @@ where
             _marker: PhantomData,
         })))
     }
+}
+
+fn bounds_center(bounds: Rectangle) -> Point {
+    Point::new(
+        bounds.x + bounds.width * 0.5,
+        bounds.y + bounds.height * 0.5,
+    )
+}
+
+fn open_menu_at<Message: Clone>(
+    state: &mut ContextMenuState,
+    nodes: &[MenuNode<'_>],
+    anchor: Point,
+    on_open: &Option<Message>,
+    shell: &mut Shell<'_, Message>,
+) {
+    state.open = true;
+    state.anchor = anchor;
+    state.reset_interaction();
+    state.ensure_focus(nodes);
+    if let Some(m) = on_open.clone() {
+        shell.publish(m);
+    }
+    shell.capture_event();
+    shell.request_redraw();
 }

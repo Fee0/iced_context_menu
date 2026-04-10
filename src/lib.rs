@@ -10,6 +10,14 @@
 //!     .on_select(...)
 //! ```
 //!
+//! # Opening the menu
+//!
+//! Default behavior is right-click on the widget. For a parent-driven open, call
+//! [`.opens_with`](ContextMenu::opens_with) with [`ContextMenuOpen::Programmatic`] each view:
+//! set `open: true` for one update (then clear it once the menu has opened—for example when
+//! handling the message from [`.on_open`](ContextMenu::on_open))—so the request is a one-shot pulse,
+//! like other Iced UI flags.
+//!
 //! # Theming
 //!
 //! Use [`ContextMenuStyle`] for full control (colors, typography, separators, submenu chevron,
@@ -36,6 +44,6 @@ mod context_menu;
 
 pub use context_menu::submenu_chevron::SubmenuChevronIcon;
 pub use context_menu::{
-    ContextMenu, ContextMenuState, ContextMenuStyle, MenuIcon, MenuItemId, MenuNode, MenuSpec,
-    SubmenuOpenMode,
+    ContextMenu, ContextMenuOpen, ContextMenuState, ContextMenuStyle, MenuIcon, MenuItemId,
+    MenuNode, MenuSpec, SubmenuOpenMode,
 };
