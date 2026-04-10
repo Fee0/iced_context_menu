@@ -182,6 +182,11 @@ pub(crate) fn sync_open_path_for_focus<Message>(
                     state.open_path = open;
                     return;
                 }
+                (MenuNode::Submenu { .. }, SubmenuOpenMode::Click) => {
+                    if state.open_path.starts_with(focus) {
+                        open.push(idx);
+                    }
+                }
                 _ => {}
             }
         }
