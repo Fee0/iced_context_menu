@@ -28,6 +28,7 @@ fn merged_style(state: &State) -> ContextMenuStyle {
     s.row_spacing = state.row_spacing;
     s.border_radius = state.border_radius;
     s.border_width = state.border_width;
+    s.submenu_flyout_overlap = state.submenu_flyout_overlap;
     s.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, state.scrim_alpha);
     s
 }
@@ -47,6 +48,7 @@ enum Message {
     RowSpacing(f32),
     BorderRadius(f32),
     BorderWidth(f32),
+    SubmenuFlyoutOverlap(f32),
     ScrimAlpha(f32),
     StylePreset(StylePreset),
     LongLabel(bool),
@@ -65,6 +67,7 @@ struct State {
     row_spacing: f32,
     border_radius: f32,
     border_width: f32,
+    submenu_flyout_overlap: f32,
     scrim_alpha: f32,
     style_preset: StylePreset,
     long_label: bool,
@@ -84,6 +87,7 @@ impl Default for State {
             row_spacing: 2.0,
             border_radius: 6.0,
             border_width: 1.0,
+            submenu_flyout_overlap: 5.0,
             scrim_alpha: 0.15,
             style_preset: StylePreset::Dark,
             long_label: false,
@@ -165,6 +169,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::RowSpacing(v) => state.row_spacing = v,
         Message::BorderRadius(v) => state.border_radius = v,
         Message::BorderWidth(v) => state.border_width = v,
+        Message::SubmenuFlyoutOverlap(v) => state.submenu_flyout_overlap = v,
         Message::ScrimAlpha(v) => state.scrim_alpha = v,
         Message::StylePreset(p) => state.style_preset = p,
         Message::LongLabel(v) => state.long_label = v,
@@ -292,6 +297,13 @@ fn view(state: &State) -> Element<'_, Message> {
             state.border_width,
             |x| format!("{:.1}px", x),
             Message::BorderWidth,
+        ),
+        labeled_slider(
+            "Submenu flyout overlap",
+            0.0..=20.0,
+            state.submenu_flyout_overlap,
+            |x| format!("{:.0}px", x),
+            Message::SubmenuFlyoutOverlap,
         ),
         labeled_slider(
             "Dismiss scrim opacity",

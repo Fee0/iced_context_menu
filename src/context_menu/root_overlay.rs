@@ -47,6 +47,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
             self.state.anchor,
             bounds,
             self.icons_enabled,
+            0.0,
         );
 
         self.state.submenu_anchors.clear();

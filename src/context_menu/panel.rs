@@ -177,6 +177,7 @@ pub(crate) fn layout_panel<Renderer: text::Renderer>(
     anchor: Point,
     viewport: Size,
     icons_enabled: bool,
+    submenu_horizontal_overlap: f32,
 ) -> (layout::Node, f32, f32) {
     let width = panel_content_width(renderer, style, nodes, icons_enabled);
     let geoms = row_geometries(nodes, style);
@@ -188,12 +189,19 @@ pub(crate) fn layout_panel<Renderer: text::Renderer>(
     let space_right = viewport.width - anchor.x;
     let space_left = anchor.x;
     let place_right = space_right >= panel_w || space_right >= space_left;
-    let x = if place_right {
+    let mut x = if place_right {
         anchor.x
     } else {
         anchor.x - panel_w
+    };
+    if submenu_horizontal_overlap > 0.0 {
+        if place_right {
+            x -= submenu_horizontal_overlap;
+        } else {
+            x += submenu_horizontal_overlap;
+        }
     }
-    .clamp(0.0, (viewport.width - panel_w).max(0.0));
+    x = x.clamp(0.0, (viewport.width - panel_w).max(0.0));
 
     let space_below = viewport.height - anchor.y;
     let space_above = anchor.y;

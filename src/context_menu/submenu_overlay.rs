@@ -94,6 +94,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
             self.anchor,
             bounds,
             self.icons_enabled,
+            self.style.submenu_flyout_overlap,
         );
 
         let next = self.depth + 1;

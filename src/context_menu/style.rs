@@ -24,6 +24,8 @@ pub struct ContextMenuStyle {
     pub submenu_chevron_icon: SubmenuChevronIcon,
     /// Horizontal space reserved for the submenu chevron column.
     pub submenu_chevron_slot_width: f32,
+    /// Horizontal overlap of nested submenu flyouts with the parent panel (`0` = flush).
+    pub submenu_flyout_overlap: f32,
     /// Width reserved for optional row icons (when [`crate::ContextMenu::show_item_icons`] is true).
     pub icon_slot_width: f32,
     /// Space between the icon column and the label.
@@ -63,6 +65,7 @@ impl Default for ContextMenuStyle {
             label_size: 14.0,
             submenu_chevron_icon: SubmenuChevronIcon::default(),
             submenu_chevron_slot_width: 20.0,
+            submenu_flyout_overlap: 5.0,
             icon_slot_width: 18.0,
             icon_label_gap: 6.0,
             hotkey_label_size: 12.0,
@@ -101,6 +104,7 @@ impl ContextMenuStyle {
             label_size: 14.0,
             submenu_chevron_icon: SubmenuChevronIcon::default(),
             submenu_chevron_slot_width: 20.0,
+            submenu_flyout_overlap: 5.0,
             icon_slot_width: 18.0,
             icon_label_gap: 6.0,
             hotkey_label_size: 12.0,
@@ -132,6 +136,7 @@ impl ContextMenuStyle {
             label_size: 14.0,
             submenu_chevron_icon: SubmenuChevronIcon::default(),
             submenu_chevron_slot_width: 20.0,
+            submenu_flyout_overlap: 5.0,
             icon_slot_width: 18.0,
             icon_label_gap: 6.0,
             hotkey_label_size: 12.0,
