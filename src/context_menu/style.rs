@@ -13,6 +13,8 @@ pub struct ContextMenuStyle {
     pub border_radius: f32,
     /// Padding inside the framed panel.
     pub panel_padding: f32,
+    /// Extra horizontal inset for row labels (and chevron) inside the hover margin.
+    pub row_label_inset: f32,
     pub min_width: f32,
     pub row_spacing: f32,
     pub label_size: f32,
@@ -39,6 +41,7 @@ impl Default for ContextMenuStyle {
             border_width: 1.0,
             border_radius: 6.0,
             panel_padding: 6.0,
+            row_label_inset: 6.0,
             min_width: 160.0,
             row_spacing: 2.0,
             label_size: 14.0,
@@ -69,6 +72,7 @@ impl ContextMenuStyle {
             border_width: 1.0,
             border_radius: 6.0,
             panel_padding: 6.0,
+            row_label_inset: 6.0,
             min_width: 160.0,
             row_spacing: 2.0,
             label_size: 14.0,
@@ -92,6 +96,7 @@ impl ContextMenuStyle {
             border_width: 1.0,
             border_radius: 6.0,
             panel_padding: 6.0,
+            row_label_inset: 6.0,
             min_width: 160.0,
             row_spacing: 2.0,
             label_size: 14.0,

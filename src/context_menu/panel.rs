@@ -99,7 +99,8 @@ fn panel_content_width<Renderer: text::Renderer>(
             MenuNode::Submenu { .. } => SUBMENU_CHEVRON_WIDTH,
             _ => 0.0,
         };
-        w = w.max(lw + style.panel_padding * 2.0 + extra);
+        let h_margin = style.panel_padding + style.row_label_inset;
+        w = w.max(lw + h_margin * 2.0 + extra);
     }
     w
 }
@@ -243,12 +244,13 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
         match node {
             MenuNode::Separator => {
                 let y = row_bounds.center_y();
+                let h_margin = style.panel_padding + style.row_label_inset;
                 renderer.fill_quad(
                     renderer::Quad {
                         bounds: Rectangle {
-                            x: row_bounds.x + style.panel_padding,
+                            x: row_bounds.x + h_margin,
                             y: y - style.separator_height * 0.5,
-                            width: row_bounds.width - style.panel_padding * 2.0,
+                            width: (row_bounds.width - h_margin * 2.0).max(0.0),
                             height: style.separator_height,
                         },
                         ..renderer::Quad::default()
@@ -278,12 +280,16 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
                         shaping: text::Shaping::default(),
                         wrapping: text::Wrapping::None,
                     },
-                    Point::new(row_bounds.x + style.panel_padding, row_bounds.center_y()),
+                    Point::new(
+                        row_bounds.x + style.panel_padding + style.row_label_inset,
+                        row_bounds.center_y(),
+                    ),
                     color,
                     clip_bounds,
                 );
             }
             MenuNode::Submenu { title, .. } => {
+                let label_x = row_bounds.x + style.panel_padding + style.row_label_inset;
                 renderer.fill_text(
                     text::Text {
                         content: title.clone(),
@@ -296,12 +302,14 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
                         shaping: text::Shaping::default(),
                         wrapping: text::Wrapping::None,
                     },
-                    Point::new(row_bounds.x + style.panel_padding, row_bounds.center_y()),
+                    Point::new(label_x, row_bounds.center_y()),
                     style.label_color,
                     clip_bounds,
                 );
-                let chevron_x =
-                    row_bounds.x + row_bounds.width - style.panel_padding - SUBMENU_CHEVRON_WIDTH;
+                let chevron_x = row_bounds.x + row_bounds.width
+                    - style.panel_padding
+                    - style.row_label_inset
+                    - SUBMENU_CHEVRON_WIDTH;
                 renderer.fill_text(
                     text::Text {
                         content: SUBMENU_CHEVRON.to_string(),
