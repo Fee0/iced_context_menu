@@ -38,7 +38,6 @@ enum Message {
     MenuClosed,
     MenuSelected(MenuItemId),
     SubmenuMode(SubmenuOpenMode),
-    HoverDelay(f32),
     CloseOnSelect(bool),
     PanelPadding(f32),
     MinWidth(f32),
@@ -56,7 +55,6 @@ enum Message {
 struct State {
     status: String,
     submenu_mode: SubmenuOpenMode,
-    hover_delay_ms: f32,
     close_on_select: bool,
     panel_padding: f32,
     min_width: f32,
@@ -75,7 +73,6 @@ impl Default for State {
         Self {
             status: String::new(),
             submenu_mode: SubmenuOpenMode::Hover,
-            hover_delay_ms: 180.0,
             close_on_select: true,
             panel_padding: 6.0,
             min_width: 160.0,
@@ -138,7 +135,6 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.status = format!("Selected item {}", id);
         }
         Message::SubmenuMode(m) => state.submenu_mode = m,
-        Message::HoverDelay(v) => state.hover_delay_ms = v,
         Message::CloseOnSelect(v) => state.close_on_select = v,
         Message::PanelPadding(v) => state.panel_padding = v,
         Message::MinWidth(v) => state.min_width = v,
@@ -183,12 +179,6 @@ fn view(state: &State) -> Element<'_, Message> {
                 Message::SubmenuMode,
             ),
             radio(
-                "Hover delayed — wait, then open",
-                SubmenuOpenMode::HoverDelayed,
-                Some(state.submenu_mode),
-                Message::SubmenuMode,
-            ),
-            radio(
                 "Click — open submenu on click",
                 SubmenuOpenMode::Click,
                 Some(state.submenu_mode),
@@ -196,13 +186,6 @@ fn view(state: &State) -> Element<'_, Message> {
             ),
         ]
         .spacing(4),
-        labeled_slider(
-            "Submenu hover delay (ms)",
-            0.0..=800.0,
-            state.hover_delay_ms,
-            |x| format!("{:.0}", x),
-            Message::HoverDelay,
-        ),
         checkbox(state.close_on_select)
             .label("Close menu after selecting an action")
             .on_toggle(Message::CloseOnSelect),
@@ -324,8 +307,6 @@ fn view(state: &State) -> Element<'_, Message> {
     .center_x(Length::Fill)
     .center_y(Length::Fill);
 
-    let hover_ms = state.hover_delay_ms.round().clamp(0.0, u64::MAX as f32) as u64;
-
     let content = row![controls, rule::vertical(10), target].spacing(0);
 
     ContextMenu::new(content)
@@ -335,7 +316,6 @@ fn view(state: &State) -> Element<'_, Message> {
         .on_close(Message::MenuClosed)
         .on_select(Message::MenuSelected)
         .submenu_open_mode(state.submenu_mode)
-        .submenu_hover_delay_ms(hover_ms)
         .close_on_select(state.close_on_select)
         .into()
 }

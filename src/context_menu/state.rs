@@ -1,9 +1,7 @@
-//! Menu tree navigation, open/focus paths, and delayed submenu state.
+//! Menu tree navigation and open/focus paths.
 
 use super::menu::{MenuNode, MenuSpec};
 
-use iced::advanced::Shell;
-use iced::time::{Duration as IcedDuration, Instant};
 use iced::Point;
 
 /// How nested submenus open.
@@ -12,8 +10,6 @@ pub enum SubmenuOpenMode {
     /// Open as soon as the pointer enters the submenu row.
     #[default]
     Hover,
-    /// Open after the pointer rests on the row for [`crate::ContextMenu::submenu_hover_delay_ms`].
-    HoverDelayed,
     /// Open when the submenu row is clicked.
     Click,
 }
@@ -27,8 +23,6 @@ pub struct ContextMenuState {
     pub focus_path: Vec<usize>,
     /// Open submenu chain: `open_path[0]` is a root row index, etc.
     pub open_path: Vec<usize>,
-    /// Pending delayed submenu (`HoverDelayed`).
-    pub submenu_delay: Option<(Vec<usize>, Instant)>,
     /// Anchor for flyout at depth `d` (`submenu_anchors[d]` = top-left of that flyout panel).
     pub submenu_anchors: Vec<Point>,
 }
@@ -40,7 +34,6 @@ impl Default for ContextMenuState {
             anchor: Point::ORIGIN,
             focus_path: Vec::new(),
             open_path: Vec::new(),
-            submenu_delay: None,
             submenu_anchors: Vec::new(),
         }
     }
@@ -50,7 +43,6 @@ impl ContextMenuState {
     pub(crate) fn reset_interaction(&mut self) {
         self.focus_path.clear();
         self.open_path.clear();
-        self.submenu_delay = None;
         self.submenu_anchors.clear();
     }
 
@@ -139,15 +131,12 @@ pub(crate) fn current_nodes<'a>(root: &'a [MenuNode], focus_path: &[usize]) -> &
     submenu_children(root, &focus_path[..focus_path.len() - 1]).unwrap_or(root)
 }
 
-pub(crate) fn sync_open_path_for_focus<Message>(
+pub(crate) fn sync_open_path_for_focus(
     state: &mut ContextMenuState,
     items: &MenuSpec,
     mode: SubmenuOpenMode,
-    hover_delay: IcedDuration,
     focus: &[usize],
-    shell: &mut Shell<'_, Message>,
 ) {
-    state.submenu_delay = None;
     if focus.is_empty() {
         state.open_path.clear();
         return;
@@ -175,12 +164,6 @@ pub(crate) fn sync_open_path_for_focus<Message>(
             match (node, mode) {
                 (MenuNode::Submenu { .. }, SubmenuOpenMode::Hover) => {
                     open.push(idx);
-                }
-                (MenuNode::Submenu { .. }, SubmenuOpenMode::HoverDelayed) => {
-                    state.submenu_delay = Some((focus.to_vec(), Instant::now()));
-                    shell.request_redraw_at(Instant::now() + hover_delay);
-                    state.open_path = open;
-                    return;
                 }
                 (MenuNode::Submenu { .. }, SubmenuOpenMode::Click) => {
                     if state.open_path.starts_with(focus) {

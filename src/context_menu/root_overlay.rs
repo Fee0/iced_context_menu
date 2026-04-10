@@ -19,17 +19,13 @@ use iced::advanced::{Clipboard, Shell};
 use iced::keyboard;
 use iced::mouse;
 use iced::touch;
-use iced::time::Instant;
 use iced::{Event, Point, Rectangle, Size, Vector};
-
-use iced::time::Duration as IcedDuration;
 
 pub(crate) struct RootOverlay<'a, 'b, Message, Theme, Renderer> {
     pub(crate) state: &'a mut ContextMenuState,
     pub(crate) items: &'b MenuSpec,
     pub(crate) style: &'b ContextMenuStyle,
     pub(crate) submenu_mode: SubmenuOpenMode,
-    pub(crate) submenu_hover_delay: IcedDuration,
     pub(crate) close_on_select: bool,
     pub(crate) on_close: Option<Message>,
     pub(crate) on_select: Option<&'b dyn Fn(MenuItemId) -> Message>,
@@ -77,26 +73,6 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
     ) {
         let nodes = self.items.nodes();
         self.handle_common(event, layout, cursor, shell, nodes, &[]);
-
-        if let Event::Window(iced::window::Event::RedrawRequested(_)) = event {
-            if let Some((path, started)) = self.state.submenu_delay.clone() {
-                if Instant::now().duration_since(started) >= self.submenu_hover_delay {
-                    let fp = self.state.focus_path.clone();
-                    if fp.starts_with(&path) {
-                        sync_open_path_for_focus(
-                            self.state,
-                            self.items,
-                            SubmenuOpenMode::Hover,
-                            self.submenu_hover_delay,
-                            &fp,
-                            shell,
-                        );
-                    }
-                    self.state.submenu_delay = None;
-                    shell.request_redraw();
-                }
-            }
-        }
     }
 
     fn draw(
@@ -162,7 +138,6 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
             items: self.items,
             style: self.style,
             submenu_mode: self.submenu_mode,
-            submenu_hover_delay: self.submenu_hover_delay,
             close_on_select: self.close_on_select,
             on_close: self.on_close.clone(),
             on_select: self.on_select,
@@ -238,9 +213,7 @@ impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                             self.state,
                             self.items,
                             self.submenu_mode,
-                            self.submenu_hover_delay,
                             &new_focus,
-                            shell,
                         );
                         shell.request_redraw();
                     }
@@ -321,14 +294,7 @@ impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                         *self.state.focus_path.last_mut().unwrap() = i;
                     }
                     let fp = self.state.focus_path.clone();
-                    sync_open_path_for_focus(
-                        self.state,
-                        self.items,
-                        self.submenu_mode,
-                        self.submenu_hover_delay,
-                        &fp,
-                        shell,
-                    );
+                    sync_open_path_for_focus(self.state, self.items, self.submenu_mode, &fp);
                     shell.capture_event();
                     shell.request_redraw();
                 }
@@ -341,14 +307,7 @@ impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                         *self.state.focus_path.last_mut().unwrap() = i;
                     }
                     let fp = self.state.focus_path.clone();
-                    sync_open_path_for_focus(
-                        self.state,
-                        self.items,
-                        self.submenu_mode,
-                        self.submenu_hover_delay,
-                        &fp,
-                        shell,
-                    );
+                    sync_open_path_for_focus(self.state, self.items, self.submenu_mode, &fp);
                     shell.capture_event();
                     shell.request_redraw();
                 }
