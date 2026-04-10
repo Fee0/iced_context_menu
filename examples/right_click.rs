@@ -121,11 +121,11 @@ fn build_menu(long_label: bool) -> MenuSpec {
         .to_vec();
 
     let more_with_icon_children = MenuSpec::new()
-        .action(7_u64, "Rename", None, None)
+        .action(7_u64, "Rename", None, Some("F10".to_string()))
         .submenu(
             "Share",
             MenuSpec::new()
-                .action(8_u64, "Copy link", None, None)
+                .action(8_u64, "Copy link", None, Some("F11".to_string()))
                 .action(9_u64, "Open permissions", None, None)
                 .nodes()
                 .to_vec(),
