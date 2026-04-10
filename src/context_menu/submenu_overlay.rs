@@ -215,6 +215,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                 cursor,
                 &self.state.focus_path,
                 path,
+                &self.state.open_path,
                 layout.bounds(),
                 self.depth,
                 self.icons_enabled,

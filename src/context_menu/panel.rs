@@ -270,6 +270,7 @@ pub(crate) fn draw_panel<Renderer>(
     cursor: mouse::Cursor,
     focus_path: &[usize],
     prefix_path: &[usize],
+    open_path: &[usize],
     clip_bounds: Rectangle,
     depth: usize,
     icons_enabled: bool,
@@ -327,11 +328,11 @@ pub(crate) fn draw_panel<Renderer>(
         row_path.push(g.node_idx);
         let is_focused = focus_path == row_path.as_slice();
 
+        let hovered = pointer_row == Some(g.node_idx);
+        let open_chain =
+            !open_path.is_empty() && open_path.starts_with(row_path.as_slice());
         let show_row_highlight = !matches!(node, MenuNode::Separator)
-            && match pointer_row {
-                Some(pi) => pi == g.node_idx,
-                None => is_focused,
-            };
+            && (hovered || open_chain || (pointer_row.is_none() && is_focused));
 
         let pressed = false;
 
