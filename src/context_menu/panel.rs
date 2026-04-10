@@ -98,6 +98,44 @@ fn measure_label_width<Renderer: text::Renderer>(
     <<Renderer as text::Renderer>::Paragraph as Paragraph>::with_text(text).min_width()
 }
 
+fn measure_hotkey_width<Renderer: text::Renderer>(
+    renderer: &Renderer,
+    style: &ContextMenuStyle,
+    hotkey: &str,
+) -> f32 {
+    let size = Pixels(style.hotkey_label_size);
+    let line_height = text::LineHeight::default();
+    let text = text::Text {
+        content: hotkey,
+        bounds: Size::new(f32::INFINITY, style.row_height),
+        size,
+        line_height,
+        font: renderer.default_font(),
+        align_x: text::Alignment::Left,
+        align_y: alignment::Vertical::Top,
+        shaping: text::Shaping::default(),
+        wrapping: text::Wrapping::None,
+    };
+    <<Renderer as text::Renderer>::Paragraph as Paragraph>::with_text(text).min_width()
+}
+
+fn max_hotkey_width_in_panel<Renderer: text::Renderer>(
+    renderer: &Renderer,
+    style: &ContextMenuStyle,
+    nodes: &[MenuNode],
+) -> f32 {
+    let mut m = 0.0_f32;
+    for node in nodes {
+        if let MenuNode::Action {
+            hotkey: Some(h), ..
+        } = node
+        {
+            m = m.max(measure_hotkey_width(renderer, style, h.as_str()));
+        }
+    }
+    m
+}
+
 fn panel_content_width<Renderer: text::Renderer>(
     renderer: &Renderer,
     style: &ContextMenuStyle,
@@ -105,7 +143,14 @@ fn panel_content_width<Renderer: text::Renderer>(
     icons_enabled: bool,
 ) -> f32 {
     let icon_extra = icon_column_width(style, icons_enabled);
+    let max_hk = max_hotkey_width_in_panel(renderer, style, nodes);
+    let hk_strip = if max_hk > 0.0 {
+        style.label_hotkey_gap + max_hk
+    } else {
+        0.0
+    };
     let mut w = style.min_width;
+    let h_margin = style.panel_padding + style.row_label_inset;
     for node in nodes {
         let label = match node {
             MenuNode::Action { title, .. } => title.as_str(),
@@ -113,12 +158,14 @@ fn panel_content_width<Renderer: text::Renderer>(
             MenuNode::Separator => continue,
         };
         let lw = measure_label_width(renderer, style, label);
-        let extra = match node {
-            MenuNode::Submenu { .. } => style.submenu_chevron_slot_width,
-            _ => 0.0,
+        let row_need = match node {
+            MenuNode::Action { .. } => lw + h_margin * 2.0 + icon_extra + hk_strip,
+            MenuNode::Submenu { .. } => {
+                lw + h_margin * 2.0 + icon_extra + style.submenu_chevron_slot_width
+            }
+            MenuNode::Separator => continue,
         };
-        let h_margin = style.panel_padding + style.row_label_inset;
-        w = w.max(lw + h_margin * 2.0 + extra + icon_extra);
+        w = w.max(row_need);
     }
     w
 }
@@ -263,6 +310,7 @@ pub(crate) fn draw_panel<Renderer>(
     let line_height = text::LineHeight::default();
     let font = renderer.default_font();
     let icon_col = icon_column_width(style, icons_enabled);
+    let max_hk = max_hotkey_width_in_panel(renderer, style, nodes);
     let row_content_left = |row_bounds: Rectangle| {
         row_bounds.x + style.panel_padding + style.row_label_inset
     };
@@ -330,6 +378,7 @@ pub(crate) fn draw_panel<Renderer>(
                 title,
                 enabled,
                 icon,
+                hotkey,
                 ..
             } => {
                 let color = if *enabled {
@@ -350,10 +399,19 @@ pub(crate) fn draw_panel<Renderer>(
                         );
                     }
                 }
+                let label_x = label_x_for_row(row_bounds);
+                let content_right = row_bounds.x + row_bounds.width
+                    - style.panel_padding
+                    - style.row_label_inset;
+                let label_bounds_w = if max_hk > 0.0 {
+                    (content_right - max_hk - style.label_hotkey_gap - label_x).max(0.0)
+                } else {
+                    f32::INFINITY
+                };
                 renderer.fill_text(
                     text::Text {
                         content: title.clone(),
-                        bounds: Size::new(f32::INFINITY, row_bounds.height),
+                        bounds: Size::new(label_bounds_w, row_bounds.height),
                         size: text_size,
                         line_height,
                         font,
@@ -362,10 +420,37 @@ pub(crate) fn draw_panel<Renderer>(
                         shaping: text::Shaping::default(),
                         wrapping: text::Wrapping::None,
                     },
-                    Point::new(label_x_for_row(row_bounds), row_bounds.center_y()),
+                    Point::new(label_x, row_bounds.center_y()),
                     color,
                     clip_bounds,
                 );
+                if max_hk > 0.0 {
+                    if let Some(hk) = hotkey.as_ref() {
+                        let hk_color = if *enabled {
+                            style.hotkey_label_color
+                        } else {
+                            style.disabled_color
+                        };
+                        let hk_size = Pixels(style.hotkey_label_size);
+                        let hk_line_height = text::LineHeight::default();
+                        renderer.fill_text(
+                            text::Text {
+                                content: hk.clone(),
+                                bounds: Size::new(max_hk, row_bounds.height),
+                                size: hk_size,
+                                line_height: hk_line_height,
+                                font,
+                                align_x: text::Alignment::Right,
+                                align_y: alignment::Vertical::Center,
+                                shaping: text::Shaping::default(),
+                                wrapping: text::Wrapping::None,
+                            },
+                            Point::new(content_right, row_bounds.center_y()),
+                            hk_color,
+                            clip_bounds,
+                        );
+                    }
+                }
             }
             MenuNode::Submenu { title, icon, .. } => {
                 // Match line box to row height so label and larger chevron share the same vertical

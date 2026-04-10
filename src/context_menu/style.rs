@@ -28,6 +28,12 @@ pub struct ContextMenuStyle {
     pub icon_slot_width: f32,
     /// Space between the icon column and the label.
     pub icon_label_gap: f32,
+    /// Font size for optional action hotkey hints on the right.
+    pub hotkey_label_size: f32,
+    /// Space between the title and the hotkey column (when any action has a hotkey).
+    pub label_hotkey_gap: f32,
+    /// Color for hotkey hints when the action is enabled (typically more muted than [`Self::label_color`]).
+    pub hotkey_label_color: Color,
     pub label_color: Color,
     pub disabled_color: Color,
     pub separator_color: Color,
@@ -59,6 +65,9 @@ impl Default for ContextMenuStyle {
             submenu_chevron_slot_width: 20.0,
             icon_slot_width: 18.0,
             icon_label_gap: 6.0,
+            hotkey_label_size: 12.0,
+            label_hotkey_gap: 14.0,
+            hotkey_label_color: Color::from_rgb(0.62, 0.62, 0.68),
             label_color: Color::from_rgb(0.92, 0.92, 0.94),
             disabled_color: Color::from_rgb(0.45, 0.45, 0.5),
             separator_color: Color::from_rgb(0.35, 0.35, 0.4),
@@ -94,6 +103,9 @@ impl ContextMenuStyle {
             submenu_chevron_slot_width: 20.0,
             icon_slot_width: 18.0,
             icon_label_gap: 6.0,
+            hotkey_label_size: 12.0,
+            label_hotkey_gap: 14.0,
+            hotkey_label_color: Color::from_rgb(0.45, 0.45, 0.50),
             label_color: Color::from_rgb(0.12, 0.12, 0.14),
             disabled_color: Color::from_rgb(0.55, 0.55, 0.58),
             separator_color: Color::from_rgb(0.82, 0.82, 0.88),
@@ -122,6 +134,9 @@ impl ContextMenuStyle {
             submenu_chevron_slot_width: 20.0,
             icon_slot_width: 18.0,
             icon_label_gap: 6.0,
+            hotkey_label_size: 12.0,
+            label_hotkey_gap: 14.0,
+            hotkey_label_color: Color::from_rgb(0.72, 0.65, 0.58),
             label_color: Color::from_rgb(0.95, 0.90, 0.82),
             disabled_color: Color::from_rgb(0.55, 0.48, 0.42),
             separator_color: Color::from_rgb(0.38, 0.30, 0.26),

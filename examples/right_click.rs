@@ -1,7 +1,7 @@
 ﻿use iced::widget::{checkbox, column, container, radio, row, rule, scrollable, slider, text};
 use iced::{Color, Element, Length, Task};
 use iced_context_menu::{
-    ContextMenu, ContextMenuStyle, MenuIcon, MenuItemId, MenuNode, MenuSpec, SubmenuOpenMode,
+    ContextMenu, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, SubmenuOpenMode,
 };
 
 fn main() -> iced::Result {
@@ -106,70 +106,46 @@ fn build_menu(long_label: bool) -> MenuSpec {
         "Copy".into()
     };
 
-    MenuSpec::new()
-        .action_with_icon(1_u64, copy_title, demo_row_icon())
-        .action(2_u64, "Paste")
-        .separator()
-        .disabled(3_u64, "Unavailable")
+    let more_children = MenuSpec::new()
+        .action(4_u64, "Rename", None, None)
         .submenu(
-            "More",
-            vec![
-                MenuNode::Action {
-                    id: 4_u64.into(),
-                    title: "Rename".into(),
-                    enabled: true,
-                    icon: None,
-                },
-                MenuNode::Submenu {
-                    title: "Share".into(),
-                    children: vec![
-                        MenuNode::Action {
-                            id: 5_u64.into(),
-                            title: "Copy link".into(),
-                            enabled: true,
-                            icon: None,
-                        },
-                        MenuNode::Action {
-                            id: 6_u64.into(),
-                            title: "Open permissions".into(),
-                            enabled: true,
-                            icon: None,
-                        },
-                    ],
-                    icon: None,
-                },
-            ],
+            "Share",
+            MenuSpec::new()
+                .action(5_u64, "Copy link", None, None)
+                .action(6_u64, "Open permissions", None, None)
+                .nodes()
+                .to_vec(),
+            None,
         )
-        .submenu_with_icon(
-            "More",
-            demo_row_icon2(),
-            vec![
-                MenuNode::Action {
-                    id: 7_u64.into(),
-                    title: "Rename".into(),
-                    enabled: true,
-                    icon: None,
-                },
-                MenuNode::Submenu {
-                    title: "Share".into(),
-                    children: vec![
-                        MenuNode::Action {
-                            id: 8_u64.into(),
-                            title: "Copy link".into(),
-                            enabled: true,
-                            icon: None,
-                        },
-                        MenuNode::Action {
-                            id: 9_u64.into(),
-                            title: "Open permissions".into(),
-                            enabled: true,
-                            icon: None,
-                        },
-                    ],
-                    icon: None,
-                },
-            ],
+        .nodes()
+        .to_vec();
+
+    let more_with_icon_children = MenuSpec::new()
+        .action(7_u64, "Rename", None, None)
+        .submenu(
+            "Share",
+            MenuSpec::new()
+                .action(8_u64, "Copy link", None, None)
+                .action(9_u64, "Open permissions", None, None)
+                .nodes()
+                .to_vec(),
+            None,
         )
+        .nodes()
+        .to_vec();
+
+    MenuSpec::new()
+        .action(
+            1_u64,
+            copy_title,
+            Some(demo_row_icon()),
+            Some("Ctrl+C".into()),
+        )
+        .action(2_u64, "Paste", None, Some("Ctrl+V".into()))
+        .separator()
+        .disabled(3_u64, "Unavailable", None, None)
+        .submenu("More", more_children, None)
+        .submenu("More", more_with_icon_children, Some(demo_row_icon2()))
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {

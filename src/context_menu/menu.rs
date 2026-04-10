@@ -34,6 +34,8 @@ pub enum MenuNode {
         title: String,
         enabled: bool,
         icon: Option<MenuIcon>,
+        /// Display-only shortcut hint (e.g. `"Ctrl+S"`). Shown right-aligned when set.
+        hotkey: Option<String>,
     },
     Separator,
     Submenu {
@@ -53,52 +55,36 @@ impl MenuSpec {
         Self { nodes: Vec::new() }
     }
 
-    pub fn action(mut self, id: impl Into<MenuItemId>, title: impl Into<String>) -> Self {
-        self.nodes.push(MenuNode::Action {
-            id: id.into(),
-            title: title.into(),
-            enabled: true,
-            icon: None,
-        });
-        self
-    }
-
-    pub fn action_with_icon(
+    pub fn action(
         mut self,
         id: impl Into<MenuItemId>,
         title: impl Into<String>,
-        icon: MenuIcon,
+        icon: Option<MenuIcon>,
+        hotkey: Option<String>,
     ) -> Self {
         self.nodes.push(MenuNode::Action {
             id: id.into(),
             title: title.into(),
             enabled: true,
-            icon: Some(icon),
+            icon,
+            hotkey,
         });
         self
     }
 
-    pub fn disabled(mut self, id: impl Into<MenuItemId>, title: impl Into<String>) -> Self {
-        self.nodes.push(MenuNode::Action {
-            id: id.into(),
-            title: title.into(),
-            enabled: false,
-            icon: None,
-        });
-        self
-    }
-
-    pub fn disabled_with_icon(
+    pub fn disabled(
         mut self,
         id: impl Into<MenuItemId>,
         title: impl Into<String>,
-        icon: MenuIcon,
+        icon: Option<MenuIcon>,
+        hotkey: Option<String>,
     ) -> Self {
         self.nodes.push(MenuNode::Action {
             id: id.into(),
             title: title.into(),
             enabled: false,
-            icon: Some(icon),
+            icon,
+            hotkey,
         });
         self
     }
@@ -112,25 +98,12 @@ impl MenuSpec {
         mut self,
         title: impl Into<String>,
         children: impl Into<Vec<MenuNode>>,
+        icon: Option<MenuIcon>,
     ) -> Self {
         self.nodes.push(MenuNode::Submenu {
             title: title.into(),
             children: children.into(),
-            icon: None,
-        });
-        self
-    }
-
-    pub fn submenu_with_icon(
-        mut self,
-        title: impl Into<String>,
-        icon: MenuIcon,
-        children: impl Into<Vec<MenuNode>>,
-    ) -> Self {
-        self.nodes.push(MenuNode::Submenu {
-            title: title.into(),
-            children: children.into(),
-            icon: Some(icon),
+            icon,
         });
         self
     }
