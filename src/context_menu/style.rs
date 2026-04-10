@@ -174,5 +174,4 @@ impl ContextMenuStyle {
             radius: Radius::from(self.border_radius),
         }
     }
-
 }
