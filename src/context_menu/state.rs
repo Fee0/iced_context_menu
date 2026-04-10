@@ -55,7 +55,7 @@ impl ContextMenuState {
         self.reset_interaction();
     }
 
-    pub(crate) fn ensure_focus(&mut self, nodes: &[MenuNode]) {
+    pub(crate) fn ensure_focus(&mut self, nodes: &[MenuNode<'_>]) {
         if self.focus_path.is_empty() {
             if let Some(i) = first_focusable(nodes, None) {
                 self.focus_path.push(i);
@@ -64,7 +64,7 @@ impl ContextMenuState {
     }
 }
 
-pub(crate) fn first_focusable(nodes: &[MenuNode], skip: Option<usize>) -> Option<usize> {
+pub(crate) fn first_focusable(nodes: &[MenuNode<'_>], skip: Option<usize>) -> Option<usize> {
     for (i, n) in nodes.iter().enumerate() {
         if skip == Some(i) {
             continue;
@@ -78,7 +78,7 @@ pub(crate) fn first_focusable(nodes: &[MenuNode], skip: Option<usize>) -> Option
     None
 }
 
-pub(crate) fn next_focusable(nodes: &[MenuNode], from: usize, dir: isize) -> Option<usize> {
+pub(crate) fn next_focusable(nodes: &[MenuNode<'_>], from: usize, dir: isize) -> Option<usize> {
     if nodes.is_empty() {
         return None;
     }
@@ -96,7 +96,10 @@ pub(crate) fn next_focusable(nodes: &[MenuNode], from: usize, dir: isize) -> Opt
     None
 }
 
-pub(crate) fn submenu_children<'a>(nodes: &'a [MenuNode], path: &[usize]) -> Option<&'a [MenuNode]> {
+pub(crate) fn submenu_children<'m>(
+    nodes: &'m [MenuNode<'m>],
+    path: &[usize],
+) -> Option<&'m [MenuNode<'m>]> {
     let mut current = nodes;
     for (d, &idx) in path.iter().enumerate() {
         let node = current.get(idx)?;
@@ -113,7 +116,7 @@ pub(crate) fn submenu_children<'a>(nodes: &'a [MenuNode], path: &[usize]) -> Opt
     None
 }
 
-pub(crate) fn node_at_path<'a>(nodes: &'a [MenuNode], path: &[usize]) -> Option<&'a MenuNode> {
+pub(crate) fn node_at_path<'m>(nodes: &'m [MenuNode<'m>], path: &[usize]) -> Option<&'m MenuNode<'m>> {
     let mut current = nodes;
     for (d, &idx) in path.iter().enumerate() {
         let node = current.get(idx)?;
@@ -128,7 +131,7 @@ pub(crate) fn node_at_path<'a>(nodes: &'a [MenuNode], path: &[usize]) -> Option<
     None
 }
 
-pub(crate) fn current_nodes<'a>(root: &'a [MenuNode], focus_path: &[usize]) -> &'a [MenuNode] {
+pub(crate) fn current_nodes<'m>(root: &'m [MenuNode<'m>], focus_path: &[usize]) -> &'m [MenuNode<'m>] {
     if focus_path.len() <= 1 {
         return root;
     }
@@ -137,7 +140,7 @@ pub(crate) fn current_nodes<'a>(root: &'a [MenuNode], focus_path: &[usize]) -> &
 
 pub(crate) fn sync_open_path_for_focus(
     state: &mut ContextMenuState,
-    items: &MenuSpec,
+    items: &MenuSpec<'_>,
     mode: SubmenuOpenMode,
     focus: &[usize],
 ) {

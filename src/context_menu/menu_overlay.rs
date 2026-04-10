@@ -25,15 +25,15 @@ use iced::{Event, Point, Rectangle, Size, Vector};
 
 /// `flyout_depth: None` — root menu (scrim, `state.anchor`, keyboard nav).
 /// `flyout_depth: Some(d)` — nested panel; same `d` as the old `SubmenuOverlay::depth`.
-pub(crate) struct MenuOverlay<'a, 'b, Message, Theme, Renderer> {
+pub(crate) struct MenuOverlay<'a, Message, Theme, Renderer> {
     pub(crate) state: &'a mut ContextMenuState,
-    pub(crate) items: &'b MenuSpec,
-    pub(crate) style: &'b ContextMenuStyle,
+    pub(crate) items: &'a MenuSpec<'a>,
+    pub(crate) style: &'a ContextMenuStyle,
     pub(crate) submenu_mode: SubmenuOpenMode,
     pub(crate) icons_enabled: bool,
     pub(crate) close_on_select: bool,
     pub(crate) on_close: Option<Message>,
-    pub(crate) on_select: Option<&'b dyn Fn(MenuItemId) -> Message>,
+    pub(crate) on_select: Option<&'a dyn Fn(MenuItemId) -> Message>,
     pub(crate) viewport: Rectangle,
     pub(crate) translation: Vector,
     pub(crate) flyout_depth: Option<usize>,
@@ -42,12 +42,12 @@ pub(crate) struct MenuOverlay<'a, 'b, Message, Theme, Renderer> {
     pub(crate) _marker: PhantomData<(Theme, Renderer)>,
 }
 
-impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
-    MenuOverlay<'a, 'b, Message, Theme, Renderer>
+impl<'a, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
+    MenuOverlay<'a, Message, Theme, Renderer>
 {
     fn write_submenu_anchor_for_next_row(
         state: &mut ContextMenuState,
-        nodes: &[MenuNode],
+        nodes: &[MenuNode<'a>],
         style: &ContextMenuStyle,
         panel_bounds: Rectangle,
         panel_w: f32,
@@ -75,7 +75,7 @@ impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
         submenu_mode: SubmenuOpenMode,
         close_on_select: bool,
         path: &[usize],
-        nodes: &[MenuNode],
+        nodes: &[MenuNode<'a>],
         idx: usize,
         on_close: &Option<Message>,
         on_select: Option<&dyn Fn(MenuItemId) -> Message>,
@@ -128,7 +128,7 @@ impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
 
     fn update_panel_pointer(
         state: &mut ContextMenuState,
-        items: &MenuSpec,
+        items: &'a MenuSpec<'a>,
         style: &ContextMenuStyle,
         submenu_mode: SubmenuOpenMode,
         close_on_select: bool,
@@ -138,7 +138,7 @@ impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
         panel_layout: Layout<'_>,
         cursor: mouse::Cursor,
         shell: &mut Shell<'_, Message>,
-        nodes: &[MenuNode],
+        nodes: &[MenuNode<'a>],
         prefix_path: &[usize],
     ) {
         if let Some(p) = cursor.position_in(panel_layout.bounds()) {
@@ -176,7 +176,7 @@ impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
 
     fn handle_keyboard_nav(
         state: &mut ContextMenuState,
-        items: &MenuSpec,
+        items: &'a MenuSpec<'a>,
         submenu_mode: SubmenuOpenMode,
         event: &Event,
         shell: &mut Shell<'_, Message>,
@@ -269,7 +269,7 @@ impl<'a, 'b, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
 }
 
 impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
-    overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'_, '_, Message, Theme, Renderer>
+    overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'_, Message, Theme, Renderer>
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         match self.flyout_depth {
@@ -541,7 +541,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                     return None;
                 }
                 let anchor = self.state.submenu_anchors.get(0).copied()?;
-                Some(overlay::Element::new(Box::new(MenuOverlay::<Message, Theme, Renderer> {
+                Some(overlay::Element::new(Box::new(MenuOverlay {
                     state: self.state,
                     items: self.items,
                     style: self.style,
@@ -563,7 +563,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                     return None;
                 }
                 let anchor = self.state.submenu_anchors.get(next).copied()?;
-                Some(overlay::Element::new(Box::new(MenuOverlay::<Message, Theme, Renderer> {
+                Some(overlay::Element::new(Box::new(MenuOverlay {
                     state: self.state,
                     items: self.items,
                     style: self.style,

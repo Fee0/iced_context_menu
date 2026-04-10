@@ -107,7 +107,7 @@ fn demo_row_icon2() -> MenuIcon {
     MenuIcon::from_svg_bytes(include_bytes!("../svg/paste-svgrepo-com.svg"))
 }
 
-fn build_menu(long_label: bool) -> MenuSpec {
+fn build_menu(long_label: bool) -> MenuSpec<'static> {
     let copy_title: String = if long_label {
         "Copy (long label to exercise min width)".into()
     } else {
@@ -129,11 +129,11 @@ fn build_menu(long_label: bool) -> MenuSpec {
         .to_vec();
 
     let more_with_icon_children = MenuSpec::new()
-        .action(7_u64, "Rename", None, Some("F10".to_string()))
+        .action(7_u64, "Rename", None, Some("F10".into()))
         .submenu(
             "Share",
             MenuSpec::new()
-                .action(8_u64, "Copy link", None, Some("F11".to_string()))
+                .action(8_u64, "Copy link", None, Some("F11".into()))
                 .action(9_u64, "Open permissions", None, None)
                 .nodes()
                 .to_vec(),

@@ -20,6 +20,13 @@
 //! borders, hotkey column, icon column, shadow, etc.). Anything without a dedicated method can be
 //! set on a [`ContextMenuStyle`] value before calling [`.style(...)`](ContextMenu::style).
 //!
+//! # Menu data
+//!
+//! [`MenuSpec`] and [`MenuNode`] use a lifetime and [`std::borrow::Cow`] for row titles and hotkey
+//! text so you can borrow `&str` from application state instead of allocating every frame. Build
+//! or replace the spec when the underlying data changes (typical Iced pattern). String literals and
+//! [`String`] still work via `.into()`.
+//!
 //! # State
 //!
 //! [`ContextMenuState`] is stored in the widget tree. Its fields are useful for **observing** whether
@@ -29,5 +36,6 @@ mod context_menu;
 
 pub use context_menu::submenu_chevron::SubmenuChevronIcon;
 pub use context_menu::{
-    ContextMenu, ContextMenuStyle, MenuIcon, MenuItemId, MenuNode, MenuSpec, SubmenuOpenMode,
+    ContextMenu, ContextMenuState, ContextMenuStyle, MenuIcon, MenuItemId, MenuNode, MenuSpec,
+    SubmenuOpenMode,
 };

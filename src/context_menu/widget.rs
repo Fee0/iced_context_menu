@@ -18,7 +18,9 @@ use iced::advanced::{Clipboard, Shell};
 use iced::mouse;
 use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector};
 
-/// Right-click wrapper that shows a [`MenuSpec`](super::menu::MenuSpec) in an overlay.
+/// Right-click wrapper that shows a [`MenuSpec`](super::menu::MenuSpec) in an overlay. The menu
+/// shares the widget lifetime `'a` with the inner [`Element`](iced::Element) so row text can borrow
+/// from application state.
 ///
 /// ## Theming
 ///
@@ -28,7 +30,7 @@ use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector
 /// then `.style(s)`.
 pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
     content: Element<'a, Message, Theme, Renderer>,
-    items: MenuSpec,
+    items: MenuSpec<'a>,
     style: ContextMenuStyle,
     submenu_mode: SubmenuOpenMode,
     /// When true, reserve a left icon column and draw [`MenuNode`](super::menu::MenuNode) icons.
@@ -55,7 +57,7 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
         }
     }
 
-    pub fn items(mut self, spec: MenuSpec) -> Self {
+    pub fn items(mut self, spec: MenuSpec<'a>) -> Self {
         self.items = spec;
         self
     }

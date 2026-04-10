@@ -9,6 +9,6 @@ pub mod submenu_chevron;
 mod widget;
 
 pub use menu::{MenuIcon, MenuItemId, MenuNode, MenuSpec};
-pub use state::SubmenuOpenMode;
+pub use state::{ContextMenuState, SubmenuOpenMode};
 pub use style::ContextMenuStyle;
 pub use widget::ContextMenu;

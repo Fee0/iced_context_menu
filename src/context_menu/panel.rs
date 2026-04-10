@@ -28,7 +28,10 @@ pub(crate) struct RowGeom {
     pub node_idx: usize,
 }
 
-pub(crate) fn row_geometries(nodes: &[MenuNode], style: &ContextMenuStyle) -> Vec<RowGeom> {
+pub(crate) fn row_geometries<'a>(
+    nodes: &[MenuNode<'a>],
+    style: &ContextMenuStyle,
+) -> Vec<RowGeom> {
     let mut out = Vec::new();
     let mut y = 0.0_f32;
     for (node_idx, node) in nodes.iter().enumerate() {
@@ -54,8 +57,8 @@ fn panel_height(geoms: &[RowGeom]) -> f32 {
 
 /// Hit-test using the same row bands as layout (excludes `row_spacing` gaps between rows).
 /// `panel_relative_y` is the cursor Y in coordinates of the panel node's [`Layout::bounds`].
-pub(crate) fn row_index_at_panel_y(
-    nodes: &[MenuNode],
+pub(crate) fn row_index_at_panel_y<'a>(
+    nodes: &[MenuNode<'a>],
     style: &ContextMenuStyle,
     panel_relative_y: f32,
 ) -> Option<usize> {
@@ -119,10 +122,10 @@ fn measure_hotkey_width<Renderer: text::Renderer>(
     <<Renderer as text::Renderer>::Paragraph as Paragraph>::with_text(text).min_width()
 }
 
-fn max_hotkey_width_in_panel<Renderer: text::Renderer>(
+fn max_hotkey_width_in_panel<'a, Renderer: text::Renderer>(
     renderer: &Renderer,
     style: &ContextMenuStyle,
-    nodes: &[MenuNode],
+    nodes: &[MenuNode<'a>],
 ) -> f32 {
     let mut m = 0.0_f32;
     for node in nodes {
@@ -130,16 +133,16 @@ fn max_hotkey_width_in_panel<Renderer: text::Renderer>(
             hotkey: Some(h), ..
         } = node
         {
-            m = m.max(measure_hotkey_width(renderer, style, h.as_str()));
+            m = m.max(measure_hotkey_width(renderer, style, h.as_ref()));
         }
     }
     m
 }
 
-fn panel_content_width<Renderer: text::Renderer>(
+fn panel_content_width<'a, Renderer: text::Renderer>(
     renderer: &Renderer,
     style: &ContextMenuStyle,
-    nodes: &[MenuNode],
+    nodes: &[MenuNode<'a>],
     icons_enabled: bool,
 ) -> f32 {
     let icon_extra = icon_column_width(style, icons_enabled);
@@ -153,8 +156,8 @@ fn panel_content_width<Renderer: text::Renderer>(
     let h_margin = style.panel_padding + style.row_label_inset;
     for node in nodes {
         let label = match node {
-            MenuNode::Action { title, .. } => title.as_str(),
-            MenuNode::Submenu { title, .. } => title.as_str(),
+            MenuNode::Action { title, .. } => title.as_ref(),
+            MenuNode::Submenu { title, .. } => title.as_ref(),
             MenuNode::Separator => continue,
         };
         let lw = measure_label_width(renderer, style, label);
@@ -170,10 +173,10 @@ fn panel_content_width<Renderer: text::Renderer>(
     w
 }
 
-pub(crate) fn layout_panel<Renderer: text::Renderer>(
+pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
     renderer: &Renderer,
     style: &ContextMenuStyle,
-    nodes: &[MenuNode],
+    nodes: &[MenuNode<'a>],
     anchor: Point,
     viewport: Size,
     icons_enabled: bool,
@@ -270,10 +273,10 @@ fn draw_row_icon<Renderer: svg::Renderer>(
     );
 }
 
-pub(crate) fn draw_panel<Renderer>(
+pub(crate) fn draw_panel<'a, Renderer>(
     renderer: &mut Renderer,
     style: &ContextMenuStyle,
-    nodes: &[MenuNode],
+    nodes: &[MenuNode<'a>],
     layout: Layout<'_>,
     cursor: mouse::Cursor,
     focus_path: &[usize],
@@ -419,7 +422,7 @@ pub(crate) fn draw_panel<Renderer>(
                 };
                 renderer.fill_text(
                     text::Text {
-                        content: title.clone(),
+                        content: title.as_ref().to_string(),
                         bounds: Size::new(label_bounds_w, row_bounds.height),
                         size: text_size,
                         line_height,
@@ -444,7 +447,7 @@ pub(crate) fn draw_panel<Renderer>(
                         let hk_line_height = text::LineHeight::default();
                         renderer.fill_text(
                             text::Text {
-                                content: hk.clone(),
+                                content: hk.as_ref().to_string(),
                                 bounds: Size::new(max_hk, row_bounds.height),
                                 size: hk_size,
                                 line_height: hk_line_height,
@@ -481,7 +484,7 @@ pub(crate) fn draw_panel<Renderer>(
                 }
                 renderer.fill_text(
                     text::Text {
-                        content: title.clone(),
+                        content: title.as_ref().to_string(),
                         bounds: Size::new(f32::INFINITY, row_bounds.height),
                         size: text_size,
                         line_height: row_line_height,

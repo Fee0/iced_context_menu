@@ -1,3 +1,14 @@
+//! Hierarchical menu description for [`crate::ContextMenu`].
+//!
+//! # Menu data and lifetimes
+//!
+//! [`MenuSpec`] and [`MenuNode`] carry a lifetime `'a` on text fields stored as [`Cow`]: you can use
+//! `Cow::Borrowed` for `&str` slices from app state (no per-frame allocation), or `Cow::Owned` /
+//! `.into()` from [`String`] or string literals. Prefer **building or updating** a [`MenuSpec`] when
+//! the underlying data changes, not necessarily on every `view()` tick.
+//!
+//! Row virtualization is not provided; very large menus pay full layout cost for all rows.
+
 use std::borrow::Cow;
 use std::fmt;
 
@@ -28,29 +39,35 @@ impl MenuIcon {
 }
 
 #[derive(Debug, Clone)]
-pub enum MenuNode {
+pub enum MenuNode<'a> {
     Action {
         id: MenuItemId,
-        title: String,
+        title: Cow<'a, str>,
         enabled: bool,
         icon: Option<MenuIcon>,
         /// Display-only shortcut hint (e.g. `"Ctrl+S"`). Shown right-aligned when set.
-        hotkey: Option<String>,
+        hotkey: Option<Cow<'a, str>>,
     },
     Separator,
     Submenu {
-        title: String,
-        children: Vec<MenuNode>,
+        title: Cow<'a, str>,
+        children: Vec<MenuNode<'a>>,
         icon: Option<MenuIcon>,
     },
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct MenuSpec {
-    nodes: Vec<MenuNode>,
+#[derive(Debug, Clone)]
+pub struct MenuSpec<'a> {
+    nodes: Vec<MenuNode<'a>>,
 }
 
-impl MenuSpec {
+impl<'a> Default for MenuSpec<'a> {
+    fn default() -> Self {
+        Self { nodes: Vec::new() }
+    }
+}
+
+impl<'a> MenuSpec<'a> {
     pub fn new() -> Self {
         Self { nodes: Vec::new() }
     }
@@ -58,9 +75,9 @@ impl MenuSpec {
     pub fn action(
         mut self,
         id: impl Into<MenuItemId>,
-        title: impl Into<String>,
+        title: impl Into<Cow<'a, str>>,
         icon: Option<MenuIcon>,
-        hotkey: Option<String>,
+        hotkey: Option<Cow<'a, str>>,
     ) -> Self {
         self.nodes.push(MenuNode::Action {
             id: id.into(),
@@ -75,9 +92,9 @@ impl MenuSpec {
     pub fn disabled(
         mut self,
         id: impl Into<MenuItemId>,
-        title: impl Into<String>,
+        title: impl Into<Cow<'a, str>>,
         icon: Option<MenuIcon>,
-        hotkey: Option<String>,
+        hotkey: Option<Cow<'a, str>>,
     ) -> Self {
         self.nodes.push(MenuNode::Action {
             id: id.into(),
@@ -96,8 +113,8 @@ impl MenuSpec {
 
     pub fn submenu(
         mut self,
-        title: impl Into<String>,
-        children: impl Into<Vec<MenuNode>>,
+        title: impl Into<Cow<'a, str>>,
+        children: impl Into<Vec<MenuNode<'a>>>,
         icon: Option<MenuIcon>,
     ) -> Self {
         self.nodes.push(MenuNode::Submenu {
@@ -108,7 +125,7 @@ impl MenuSpec {
         self
     }
 
-    pub fn nodes(&self) -> &[MenuNode] {
+    pub fn nodes(&self) -> &[MenuNode<'a>] {
         &self.nodes
     }
 }
@@ -119,8 +136,8 @@ impl From<u64> for MenuItemId {
     }
 }
 
-impl From<Vec<MenuNode>> for MenuSpec {
-    fn from(nodes: Vec<MenuNode>) -> Self {
+impl<'a> From<Vec<MenuNode<'a>>> for MenuSpec<'a> {
+    fn from(nodes: Vec<MenuNode<'a>>) -> Self {
         Self { nodes }
     }
 }
