@@ -218,9 +218,16 @@ pub(crate) fn draw_panel<Renderer: text::Renderer>(
 
         if is_focused || is_hover {
             if !matches!(node, MenuNode::Separator) {
+                let pad = style.panel_padding;
+                let highlight_bounds = Rectangle {
+                    x: row_bounds.x + pad,
+                    y: row_bounds.y,
+                    width: (row_bounds.width - pad * 2.0).max(0.0),
+                    height: row_bounds.height,
+                };
                 renderer.fill_quad(
                     renderer::Quad {
-                        bounds: row_bounds,
+                        bounds: highlight_bounds,
                         border: border::rounded(4.0),
                         ..renderer::Quad::default()
                     },
