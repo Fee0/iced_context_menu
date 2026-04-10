@@ -11,7 +11,7 @@ pub mod submenu_chevron;
 mod submenu_overlay;
 mod widget;
 
-pub use menu::{MenuItemId, MenuNode, MenuSpec};
+pub use menu::{MenuIcon, MenuItemId, MenuNode, MenuSpec};
 pub use state::{ContextMenuState, SubmenuOpenMode};
 pub use style::ContextMenuStyle;
 pub use widget::ContextMenu;

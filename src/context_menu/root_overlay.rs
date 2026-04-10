@@ -26,6 +26,7 @@ pub(crate) struct RootOverlay<'a, 'b, Message, Theme, Renderer> {
     pub(crate) items: &'b MenuSpec,
     pub(crate) style: &'b ContextMenuStyle,
     pub(crate) submenu_mode: SubmenuOpenMode,
+    pub(crate) icons_enabled: bool,
     pub(crate) close_on_select: bool,
     pub(crate) on_close: Option<Message>,
     pub(crate) on_select: Option<&'b dyn Fn(MenuItemId) -> Message>,
@@ -39,8 +40,14 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         let nodes = self.items.nodes();
-        let (panel_node, panel_w, _panel_h) =
-            layout_panel(renderer, self.style, nodes, self.state.anchor, bounds);
+        let (panel_node, panel_w, _panel_h) = layout_panel(
+            renderer,
+            self.style,
+            nodes,
+            self.state.anchor,
+            bounds,
+            self.icons_enabled,
+        );
 
         self.state.submenu_anchors.clear();
         if !self.state.open_path.is_empty() {
@@ -107,6 +114,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                 &[],
                 layout.bounds(),
                 0,
+                self.icons_enabled,
             );
         }
     }
@@ -138,6 +146,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
             items: self.items,
             style: self.style,
             submenu_mode: self.submenu_mode,
+            icons_enabled: self.icons_enabled,
             close_on_select: self.close_on_select,
             on_close: self.on_close.clone(),
             on_select: self.on_select,

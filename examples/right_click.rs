@@ -1,7 +1,7 @@
 ﻿use iced::widget::{checkbox, column, container, radio, row, rule, scrollable, slider, text};
 use iced::{Color, Element, Length, Task};
 use iced_context_menu::{
-    ContextMenu, ContextMenuStyle, MenuItemId, MenuNode, MenuSpec, SubmenuOpenMode,
+    ContextMenu, ContextMenuStyle, MenuIcon, MenuItemId, MenuNode, MenuSpec, SubmenuOpenMode,
 };
 
 fn main() -> iced::Result {
@@ -38,6 +38,7 @@ enum Message {
     MenuClosed,
     MenuSelected(MenuItemId),
     SubmenuMode(SubmenuOpenMode),
+    ShowItemIcons(bool),
     CloseOnSelect(bool),
     PanelPadding(f32),
     MinWidth(f32),
@@ -55,6 +56,7 @@ enum Message {
 struct State {
     status: String,
     submenu_mode: SubmenuOpenMode,
+    show_item_icons: bool,
     close_on_select: bool,
     panel_padding: f32,
     min_width: f32,
@@ -73,6 +75,7 @@ impl Default for State {
         Self {
             status: String::new(),
             submenu_mode: SubmenuOpenMode::Hover,
+            show_item_icons: false,
             close_on_select: true,
             panel_padding: 6.0,
             min_width: 160.0,
@@ -88,6 +91,14 @@ impl Default for State {
     }
 }
 
+fn demo_row_icon() -> MenuIcon {
+    MenuIcon::from_svg_bytes(include_bytes!("../svg/copy-svgrepo-com.svg"))
+}
+
+fn demo_row_icon2() -> MenuIcon {
+    MenuIcon::from_svg_bytes(include_bytes!("../svg/paste-svgrepo-com.svg"))
+}
+
 fn build_menu(long_label: bool) -> MenuSpec {
     let copy_title: String = if long_label {
         "Copy (long label to exercise min width)".into()
@@ -96,7 +107,7 @@ fn build_menu(long_label: bool) -> MenuSpec {
     };
 
     MenuSpec::new()
-        .action(1_u64, copy_title)
+        .action_with_icon(1_u64, copy_title, demo_row_icon())
         .action(2_u64, "Paste")
         .separator()
         .disabled(3_u64, "Unavailable")
@@ -107,6 +118,7 @@ fn build_menu(long_label: bool) -> MenuSpec {
                     id: 4_u64.into(),
                     title: "Rename".into(),
                     enabled: true,
+                    icon: None,
                 },
                 MenuNode::Submenu {
                     title: "Share".into(),
@@ -115,13 +127,46 @@ fn build_menu(long_label: bool) -> MenuSpec {
                             id: 5_u64.into(),
                             title: "Copy link".into(),
                             enabled: true,
+                            icon: None,
                         },
                         MenuNode::Action {
                             id: 6_u64.into(),
                             title: "Open permissions".into(),
                             enabled: true,
+                            icon: None,
                         },
                     ],
+                    icon: None,
+                },
+            ],
+        )
+        .submenu_with_icon(
+            "More",
+            demo_row_icon2(),
+            vec![
+                MenuNode::Action {
+                    id: 7_u64.into(),
+                    title: "Rename".into(),
+                    enabled: true,
+                    icon: None,
+                },
+                MenuNode::Submenu {
+                    title: "Share".into(),
+                    children: vec![
+                        MenuNode::Action {
+                            id: 8_u64.into(),
+                            title: "Copy link".into(),
+                            enabled: true,
+                            icon: None,
+                        },
+                        MenuNode::Action {
+                            id: 9_u64.into(),
+                            title: "Open permissions".into(),
+                            enabled: true,
+                            icon: None,
+                        },
+                    ],
+                    icon: None,
                 },
             ],
         )
@@ -135,6 +180,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.status = format!("Selected item {}", id);
         }
         Message::SubmenuMode(m) => state.submenu_mode = m,
+        Message::ShowItemIcons(v) => state.show_item_icons = v,
         Message::CloseOnSelect(v) => state.close_on_select = v,
         Message::PanelPadding(v) => state.panel_padding = v,
         Message::MinWidth(v) => state.min_width = v,
@@ -186,6 +232,9 @@ fn view(state: &State) -> Element<'_, Message> {
             ),
         ]
         .spacing(4),
+        checkbox(state.show_item_icons)
+            .label("Show item icons (left column; Copy has a demo icon)")
+            .on_toggle(Message::ShowItemIcons),
         checkbox(state.close_on_select)
             .label("Close menu after selecting an action")
             .on_toggle(Message::CloseOnSelect),
@@ -316,6 +365,7 @@ fn view(state: &State) -> Element<'_, Message> {
         .on_close(Message::MenuClosed)
         .on_select(Message::MenuSelected)
         .submenu_open_mode(state.submenu_mode)
+        .show_item_icons(state.show_item_icons)
         .close_on_select(state.close_on_select)
         .into()
 }

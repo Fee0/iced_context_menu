@@ -1,6 +1,6 @@
 //! Panel layout and drawing (single menu column).
 
-use super::menu::MenuNode;
+use super::menu::{MenuIcon, MenuNode};
 use super::style::ContextMenuStyle;
 
 use iced::advanced::layout;
@@ -10,7 +10,15 @@ use iced::advanced::text::{self, Paragraph};
 use iced::alignment;
 use iced::border;
 use iced::mouse;
-use iced::{Pixels, Point, Rectangle, Size};
+use iced::{Color, Pixels, Point, Rectangle, Size};
+
+fn icon_column_width(style: &ContextMenuStyle, icons_enabled: bool) -> f32 {
+    if icons_enabled {
+        style.icon_slot_width + style.icon_label_gap
+    } else {
+        0.0
+    }
+}
 
 pub(crate) type Layout<'a> = iced::advanced::Layout<'a>;
 
@@ -94,7 +102,9 @@ fn panel_content_width<Renderer: text::Renderer>(
     renderer: &Renderer,
     style: &ContextMenuStyle,
     nodes: &[MenuNode],
+    icons_enabled: bool,
 ) -> f32 {
+    let icon_extra = icon_column_width(style, icons_enabled);
     let mut w = style.min_width;
     for node in nodes {
         let label = match node {
@@ -108,7 +118,7 @@ fn panel_content_width<Renderer: text::Renderer>(
             _ => 0.0,
         };
         let h_margin = style.panel_padding + style.row_label_inset;
-        w = w.max(lw + h_margin * 2.0 + extra);
+        w = w.max(lw + h_margin * 2.0 + extra + icon_extra);
     }
     w
 }
@@ -119,8 +129,9 @@ pub(crate) fn layout_panel<Renderer: text::Renderer>(
     nodes: &[MenuNode],
     anchor: Point,
     viewport: Size,
+    icons_enabled: bool,
 ) -> (layout::Node, f32, f32) {
-    let width = panel_content_width(renderer, style, nodes);
+    let width = panel_content_width(renderer, style, nodes, icons_enabled);
     let geoms = row_geometries(nodes, style);
     let content_h = panel_height(&geoms);
     let border = style.border_width * 2.0;
@@ -172,6 +183,38 @@ pub(crate) fn layout_panel<Renderer: text::Renderer>(
     (panel, panel_w, panel_h)
 }
 
+fn draw_row_icon<Renderer: svg::Renderer>(
+    renderer: &mut Renderer,
+    style: &ContextMenuStyle,
+    icon: &MenuIcon,
+    row_bounds: Rectangle,
+    slot_left_x: f32,
+    clip_bounds: Rectangle,
+    color: Color,
+) {
+    let handle = icon.handle();
+    let natural = renderer.measure_svg(&handle);
+    let nw = natural.width.max(1) as f32;
+    let nh = natural.height.max(1) as f32;
+    let slot = style.icon_slot_width;
+    let max_w = slot;
+    let max_h = row_bounds.height * 0.92;
+    let scale = (max_w / nw).min(max_h / nh);
+    let w = nw * scale;
+    let h = nh * scale;
+    let svg_bounds = Rectangle {
+        x: slot_left_x + (slot - w) * 0.5,
+        y: row_bounds.y + (row_bounds.height - h) * 0.5,
+        width: w,
+        height: h,
+    };
+    renderer.draw_svg(
+        svg::Svg::new(handle).color(color),
+        svg_bounds,
+        clip_bounds,
+    );
+}
+
 pub(crate) fn draw_panel<Renderer>(
     renderer: &mut Renderer,
     style: &ContextMenuStyle,
@@ -182,6 +225,7 @@ pub(crate) fn draw_panel<Renderer>(
     prefix_path: &[usize],
     clip_bounds: Rectangle,
     depth: usize,
+    icons_enabled: bool,
 ) where
     Renderer: text::Renderer + svg::Renderer,
 {
@@ -218,6 +262,11 @@ pub(crate) fn draw_panel<Renderer>(
     let text_size = Pixels(style.label_size);
     let line_height = text::LineHeight::default();
     let font = renderer.default_font();
+    let icon_col = icon_column_width(style, icons_enabled);
+    let row_content_left = |row_bounds: Rectangle| {
+        row_bounds.x + style.panel_padding + style.row_label_inset
+    };
+    let label_x_for_row = |row_bounds: Rectangle| row_content_left(row_bounds) + icon_col;
 
     for g in &geoms {
         let Some(rl) = row_lays.get(g.node_idx) else {
@@ -280,6 +329,7 @@ pub(crate) fn draw_panel<Renderer>(
             MenuNode::Action {
                 title,
                 enabled,
+                icon,
                 ..
             } => {
                 let color = if *enabled {
@@ -287,6 +337,19 @@ pub(crate) fn draw_panel<Renderer>(
                 } else {
                     style.disabled_color
                 };
+                if icons_enabled {
+                    if let Some(ic) = icon {
+                        draw_row_icon(
+                            renderer,
+                            style,
+                            ic,
+                            row_bounds,
+                            row_content_left(row_bounds),
+                            clip_bounds,
+                            color,
+                        );
+                    }
+                }
                 renderer.fill_text(
                     text::Text {
                         content: title.clone(),
@@ -299,19 +362,29 @@ pub(crate) fn draw_panel<Renderer>(
                         shaping: text::Shaping::default(),
                         wrapping: text::Wrapping::None,
                     },
-                    Point::new(
-                        row_bounds.x + style.panel_padding + style.row_label_inset,
-                        row_bounds.center_y(),
-                    ),
+                    Point::new(label_x_for_row(row_bounds), row_bounds.center_y()),
                     color,
                     clip_bounds,
                 );
             }
-            MenuNode::Submenu { title, .. } => {
+            MenuNode::Submenu { title, icon, .. } => {
                 // Match line box to row height so label and larger chevron share the same vertical
                 // center as each other and the hover strip (default Relative line height differs per size).
                 let row_line_height = text::LineHeight::Absolute(Pixels(row_bounds.height));
-                let label_x = row_bounds.x + style.panel_padding + style.row_label_inset;
+                let label_x = label_x_for_row(row_bounds);
+                if icons_enabled {
+                    if let Some(ic) = icon {
+                        draw_row_icon(
+                            renderer,
+                            style,
+                            ic,
+                            row_bounds,
+                            row_content_left(row_bounds),
+                            clip_bounds,
+                            style.label_color,
+                        );
+                    }
+                }
                 renderer.fill_text(
                     text::Text {
                         content: title.clone(),

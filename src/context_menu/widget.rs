@@ -24,6 +24,8 @@ pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Render
     items: MenuSpec,
     style: ContextMenuStyle,
     submenu_mode: SubmenuOpenMode,
+    /// When true, reserve a left icon column and draw [`MenuNode`](super::menu::MenuNode) icons.
+    icons_enabled: bool,
     close_on_select: bool,
     on_open: Option<Message>,
     on_close: Option<Message>,
@@ -37,6 +39,7 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
             items: MenuSpec::default(),
             style: ContextMenuStyle::default(),
             submenu_mode: SubmenuOpenMode::default(),
+            icons_enabled: false,
             close_on_select: true,
             on_open: None,
             on_close: None,
@@ -91,6 +94,12 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
 
     pub fn submenu_open_mode(mut self, mode: SubmenuOpenMode) -> Self {
         self.submenu_mode = mode;
+        self
+    }
+
+    /// When enabled, rows reserve space for optional left icons so labels stay aligned.
+    pub fn show_item_icons(mut self, show: bool) -> Self {
+        self.icons_enabled = show;
         self
     }
 
@@ -262,6 +271,7 @@ where
             items: &self.items,
             style: &self.style,
             submenu_mode: self.submenu_mode,
+            icons_enabled: self.icons_enabled,
             close_on_select: self.close_on_select,
             on_close: self.on_close.clone(),
             on_select: self.on_select.as_deref(),

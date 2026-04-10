@@ -24,6 +24,10 @@ pub struct ContextMenuStyle {
     pub submenu_chevron_icon: SubmenuChevronIcon,
     /// Horizontal space reserved for the submenu chevron column.
     pub submenu_chevron_slot_width: f32,
+    /// Width reserved for optional row icons (when [`crate::ContextMenu::show_item_icons`] is true).
+    pub icon_slot_width: f32,
+    /// Space between the icon column and the label.
+    pub icon_label_gap: f32,
     pub label_color: Color,
     pub disabled_color: Color,
     pub separator_color: Color,
@@ -53,6 +57,8 @@ impl Default for ContextMenuStyle {
             label_size: 14.0,
             submenu_chevron_icon: SubmenuChevronIcon::default(),
             submenu_chevron_slot_width: 20.0,
+            icon_slot_width: 18.0,
+            icon_label_gap: 6.0,
             label_color: Color::from_rgb(0.92, 0.92, 0.94),
             disabled_color: Color::from_rgb(0.45, 0.45, 0.5),
             separator_color: Color::from_rgb(0.35, 0.35, 0.4),
@@ -86,6 +92,8 @@ impl ContextMenuStyle {
             label_size: 14.0,
             submenu_chevron_icon: SubmenuChevronIcon::default(),
             submenu_chevron_slot_width: 20.0,
+            icon_slot_width: 18.0,
+            icon_label_gap: 6.0,
             label_color: Color::from_rgb(0.12, 0.12, 0.14),
             disabled_color: Color::from_rgb(0.55, 0.55, 0.58),
             separator_color: Color::from_rgb(0.82, 0.82, 0.88),
@@ -112,6 +120,8 @@ impl ContextMenuStyle {
             label_size: 14.0,
             submenu_chevron_icon: SubmenuChevronIcon::default(),
             submenu_chevron_slot_width: 20.0,
+            icon_slot_width: 18.0,
+            icon_label_gap: 6.0,
             label_color: Color::from_rgb(0.95, 0.90, 0.82),
             disabled_color: Color::from_rgb(0.55, 0.48, 0.42),
             separator_color: Color::from_rgb(0.38, 0.30, 0.26),

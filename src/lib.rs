@@ -7,6 +7,6 @@ mod context_menu;
 
 pub use context_menu::submenu_chevron::SubmenuChevronIcon;
 pub use context_menu::{
-    ContextMenu, ContextMenuState, ContextMenuStyle, MenuItemId, MenuNode, MenuSpec,
+    ContextMenu, ContextMenuState, ContextMenuStyle, MenuIcon, MenuItemId, MenuNode, MenuSpec,
     SubmenuOpenMode,
 };
