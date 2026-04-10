@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use super::menu::{MenuItemId, MenuSpec};
 use super::style::ContextMenuStyle;
 
+use super::menu_overlay::MenuOverlay;
 use super::panel::Layout;
-use super::root_overlay::RootOverlay;
 use super::state::{ContextMenuState, SubmenuOpenMode};
 
 use iced::advanced::layout;
@@ -16,7 +16,7 @@ use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Widget;
 use iced::advanced::{Clipboard, Shell};
 use iced::mouse;
-use iced::{Color, Element, Event, Length, Rectangle, Shadow, Size, Vector};
+use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector};
 
 /// Right-click wrapper that shows a [`MenuSpec`](super::menu::MenuSpec) in an overlay.
 ///
@@ -316,7 +316,7 @@ where
             return None;
         }
 
-        Some(overlay::Element::new(Box::new(RootOverlay::<Message, Theme, Renderer> {
+        Some(overlay::Element::new(Box::new(MenuOverlay::<Message, Theme, Renderer> {
             state,
             items: &self.items,
             style: &self.style,
@@ -327,6 +327,8 @@ where
             on_select: self.on_select.as_deref(),
             viewport: *viewport,
             translation,
+            flyout_depth: None,
+            anchor: Point::ORIGIN,
             _marker: PhantomData,
         })))
     }
