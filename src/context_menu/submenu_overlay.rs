@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use super::menu::{MenuItemId, MenuNode, MenuSpec};
 use super::style::ContextMenuStyle;
 
-use super::panel::{draw_panel, layout_panel, row_geometries, row_index_at_y, Layout};
+use super::panel::{draw_panel, layout_panel, row_geometries, row_index_at_panel_y, Layout};
 use super::state::{sync_open_path_for_focus, ContextMenuState, SubmenuOpenMode};
 
 use iced::advanced::layout;
@@ -150,7 +150,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
         if let Some(pl) = panel_layout {
             if let Some(p) = cursor.position_in(pl.bounds()) {
                 if let Event::Mouse(mouse::Event::CursorMoved { .. }) = event {
-                    if let Some(idx) = row_index_at_y(nodes, self.style, p.y) {
+                    if let Some(idx) = row_index_at_panel_y(nodes, self.style, p.y) {
                         let mut new_focus = prefix.clone();
                         new_focus.push(idx);
                         self.state.focus_path = new_focus.clone();
@@ -169,7 +169,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                 if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
                 | Event::Touch(touch::Event::FingerPressed { .. }) = event
                 {
-                    if let Some(idx) = row_index_at_y(nodes, self.style, p.y) {
+                    if let Some(idx) = row_index_at_panel_y(nodes, self.style, p.y) {
                         let mut path = prefix.clone();
                         path.push(idx);
                         activate_menu_row(

@@ -44,14 +44,25 @@ fn panel_height(geoms: &[RowGeom]) -> f32 {
     geoms.last().map(|g| g.y_offset + g.height).unwrap_or(0.0)
 }
 
-pub(crate) fn row_index_at_y(
+/// Hit-test using the same row bands as layout (excludes `row_spacing` gaps between rows).
+/// `panel_relative_y` is the cursor Y in coordinates of the panel node's [`Layout::bounds`].
+pub(crate) fn row_index_at_panel_y(
     nodes: &[MenuNode],
     style: &ContextMenuStyle,
-    y: f32,
+    panel_relative_y: f32,
 ) -> Option<usize> {
+    let y_content = panel_relative_y - style.border_width - style.panel_padding;
+    if y_content < 0.0 {
+        return None;
+    }
     let geoms = row_geometries(nodes, style);
-    for g in geoms {
-        if y >= g.y_offset && y < g.y_offset + g.height {
+    for g in &geoms {
+        let row_h = if matches!(nodes[g.node_idx], MenuNode::Separator) {
+            g.height
+        } else {
+            g.height - style.row_spacing
+        };
+        if y_content >= g.y_offset && y_content < g.y_offset + row_h {
             return Some(g.node_idx);
         }
     }
@@ -192,6 +203,18 @@ pub(crate) fn draw_panel<Renderer>(
         .map(|l| l.children().collect())
         .unwrap_or_default();
 
+    let pointer_row = cursor.position().and_then(|p| {
+        geoms.iter().find_map(|g| {
+            let rl = row_lays.get(g.node_idx)?;
+            let b = rl.bounds();
+            if b.contains(p) && !matches!(nodes[g.node_idx], MenuNode::Separator) {
+                Some(g.node_idx)
+            } else {
+                None
+            }
+        })
+    });
+
     let text_size = Pixels(style.label_size);
     let line_height = text::LineHeight::default();
     let font = renderer.default_font();
@@ -207,35 +230,34 @@ pub(crate) fn draw_panel<Renderer>(
         row_path.push(g.node_idx);
         let is_focused = focus_path == row_path.as_slice();
 
-        let is_hover = cursor
-            .position()
-            .is_some_and(|p| row_bounds.contains(p))
-            && !matches!(node, MenuNode::Separator);
+        let show_row_highlight = !matches!(node, MenuNode::Separator)
+            && match pointer_row {
+                Some(pi) => pi == g.node_idx,
+                None => is_focused,
+            };
 
         let pressed = false;
 
-        if is_focused || is_hover {
-            if !matches!(node, MenuNode::Separator) {
-                let pad = style.panel_padding;
-                let highlight_bounds = Rectangle {
-                    x: row_bounds.x + pad,
-                    y: row_bounds.y,
-                    width: (row_bounds.width - pad * 2.0).max(0.0),
-                    height: row_bounds.height,
-                };
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: highlight_bounds,
-                        border: border::rounded(4.0),
-                        ..renderer::Quad::default()
-                    },
-                    if pressed {
-                        style.row_pressed_background
-                    } else {
-                        style.row_hover_background
-                    },
-                );
-            }
+        if show_row_highlight {
+            let pad = style.panel_padding;
+            let highlight_bounds = Rectangle {
+                x: row_bounds.x + pad,
+                y: row_bounds.y,
+                width: (row_bounds.width - pad * 2.0).max(0.0),
+                height: row_bounds.height,
+            };
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: highlight_bounds,
+                    border: border::rounded(4.0),
+                    ..renderer::Quad::default()
+                },
+                if pressed {
+                    style.row_pressed_background
+                } else {
+                    style.row_hover_background
+                },
+            );
         }
 
         match node {
