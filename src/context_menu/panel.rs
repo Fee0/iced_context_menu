@@ -290,7 +290,7 @@ pub(crate) fn draw_panel<Renderer>(
         renderer::Quad {
             bounds,
             border: style.panel_border(),
-            shadow: style.panel_shadow(),
+            shadow: style.panel_shadow,
             ..renderer::Quad::default()
         },
         style.panel_background,

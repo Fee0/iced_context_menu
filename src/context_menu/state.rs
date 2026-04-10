@@ -15,6 +15,10 @@ pub enum SubmenuOpenMode {
 }
 
 /// Persistent state for [`crate::ContextMenu`], stored in the widget [`Tree`](iced::advanced::widget::Tree).
+///
+/// Fields are **intended for observation** (e.g. tests, debugging, or custom UI that reacts to the
+/// menu). **Do not mutate them from outside the widget**; internal updates assume exclusive ownership
+/// and external changes can desynchronize focus, open paths, and overlays.
 #[derive(Debug, Clone)]
 pub struct ContextMenuState {
     pub open: bool,

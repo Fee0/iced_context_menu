@@ -47,8 +47,18 @@ pub struct ContextMenuStyle {
     pub row_hover_background: Color,
     /// Action / submenu row background while pressed.
     pub row_pressed_background: Color,
+    /// Drop shadow under menu panels (root and flyouts).
+    pub panel_shadow: Shadow,
     /// Dimmed scrim over content (dismiss layer). Use alpha 0 for invisible.
     pub dismiss_scrim: Color,
+}
+
+fn default_panel_shadow() -> Shadow {
+    Shadow {
+        color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
+        offset: Vector::new(4.0, 4.0),
+        blur_radius: 12.0,
+    }
 }
 
 impl Default for ContextMenuStyle {
@@ -79,6 +89,7 @@ impl Default for ContextMenuStyle {
             row_height: 28.0,
             row_hover_background: Color::from_rgb(0.32, 0.34, 0.40),
             row_pressed_background: Color::from_rgb(0.24, 0.26, 0.32),
+            panel_shadow: default_panel_shadow(),
             dismiss_scrim: Color::from_rgba(0.0, 0.0, 0.0, 0.15),
         }
     }
@@ -118,6 +129,7 @@ impl ContextMenuStyle {
             row_height: 28.0,
             row_hover_background: Color::from_rgb(0.82, 0.86, 0.94),
             row_pressed_background: Color::from_rgb(0.72, 0.76, 0.88),
+            panel_shadow: default_panel_shadow(),
             dismiss_scrim: Color::from_rgba(0.0, 0.0, 0.0, 0.12),
         }
     }
@@ -150,6 +162,7 @@ impl ContextMenuStyle {
             row_height: 28.0,
             row_hover_background: Color::from_rgb(0.42, 0.30, 0.22),
             row_pressed_background: Color::from_rgb(0.35, 0.26, 0.20),
+            panel_shadow: default_panel_shadow(),
             dismiss_scrim: Color::from_rgba(0.0, 0.0, 0.0, 0.18),
         }
     }
@@ -162,11 +175,4 @@ impl ContextMenuStyle {
         }
     }
 
-    pub(crate) fn panel_shadow(&self) -> Shadow {
-        Shadow {
-            color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
-            offset: Vector::new(0.0, 4.0),
-            blur_radius: 12.0,
-        }
-    }
 }

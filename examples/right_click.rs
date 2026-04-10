@@ -29,6 +29,7 @@ fn merged_style(state: &State) -> ContextMenuStyle {
     s.border_radius = state.border_radius;
     s.border_width = state.border_width;
     s.submenu_flyout_overlap = state.submenu_flyout_overlap;
+    s.panel_shadow.blur_radius = state.panel_shadow_blur;
     s.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, state.scrim_alpha);
     s
 }
@@ -49,6 +50,7 @@ enum Message {
     BorderRadius(f32),
     BorderWidth(f32),
     SubmenuFlyoutOverlap(f32),
+    PanelShadowBlur(f32),
     ScrimAlpha(f32),
     StylePreset(StylePreset),
     LongLabel(bool),
@@ -68,6 +70,7 @@ struct State {
     border_radius: f32,
     border_width: f32,
     submenu_flyout_overlap: f32,
+    panel_shadow_blur: f32,
     scrim_alpha: f32,
     style_preset: StylePreset,
     long_label: bool,
@@ -78,7 +81,7 @@ impl Default for State {
         Self {
             status: String::new(),
             submenu_mode: SubmenuOpenMode::Hover,
-            show_item_icons: false,
+            show_item_icons: true,
             close_on_select: true,
             panel_padding: 6.0,
             min_width: 160.0,
@@ -88,6 +91,7 @@ impl Default for State {
             border_radius: 6.0,
             border_width: 1.0,
             submenu_flyout_overlap: 5.0,
+            panel_shadow_blur: 12.0,
             scrim_alpha: 0.15,
             style_preset: StylePreset::Dark,
             long_label: false,
@@ -170,6 +174,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::BorderRadius(v) => state.border_radius = v,
         Message::BorderWidth(v) => state.border_width = v,
         Message::SubmenuFlyoutOverlap(v) => state.submenu_flyout_overlap = v,
+        Message::PanelShadowBlur(v) => state.panel_shadow_blur = v,
         Message::ScrimAlpha(v) => state.scrim_alpha = v,
         Message::StylePreset(p) => state.style_preset = p,
         Message::LongLabel(v) => state.long_label = v,
@@ -214,20 +219,20 @@ fn view(state: &State) -> Element<'_, Message> {
         ]
         .spacing(4),
         checkbox(state.show_item_icons)
-            .label("Show item icons (left column; Copy has a demo icon)")
+            .label("Show icons")
             .on_toggle(Message::ShowItemIcons),
         checkbox(state.close_on_select)
             .label("Close menu after selecting an action")
             .on_toggle(Message::CloseOnSelect),
         checkbox(state.long_label)
-            .label("Long first row label (tests min width)")
+            .label("Long first row label")
             .on_toggle(Message::LongLabel),
     ]
     .spacing(8);
 
     let appearance = column![
         text("Appearance").size(16),
-        text("Example style preset (see ContextMenuStyle::example_*):"),
+        text("Example style preset"),
         column![
             radio(
                 "Dark (default)",
@@ -304,6 +309,13 @@ fn view(state: &State) -> Element<'_, Message> {
             state.submenu_flyout_overlap,
             |x| format!("{:.0}px", x),
             Message::SubmenuFlyoutOverlap,
+        ),
+        labeled_slider(
+            "Panel shadow blur",
+            0.0..=32.0,
+            state.panel_shadow_blur,
+            |x| format!("{:.0}px", x),
+            Message::PanelShadowBlur,
         ),
         labeled_slider(
             "Dismiss scrim opacity",

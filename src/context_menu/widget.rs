@@ -16,9 +16,16 @@ use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Widget;
 use iced::advanced::{Clipboard, Shell};
 use iced::mouse;
-use iced::{Element, Event, Length, Rectangle, Size, Vector};
+use iced::{Color, Element, Event, Length, Rectangle, Shadow, Size, Vector};
 
 /// Right-click wrapper that shows a [`MenuSpec`](super::menu::MenuSpec) in an overlay.
+///
+/// ## Theming
+///
+/// Pass a full [`ContextMenuStyle`] with [`Self::style`], or override common fields with the
+/// builder methods (`panel_padding`, `row_label_inset`, [`Self::panel_shadow`], etc.). For any
+/// field without a dedicated method, use `let mut s = ContextMenuStyle::example_dark(); s.separator_color = …;`
+/// then `.style(s)`.
 pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
     content: Element<'a, Message, Theme, Renderer>,
     items: MenuSpec,
@@ -33,6 +40,7 @@ pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Render
 }
 
 impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
+    /// Builds a menu with [`ContextMenuStyle::default`] and hover submenus.
     pub fn new(content: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
         Self {
             content: content.into(),
@@ -52,6 +60,8 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
         self
     }
 
+    /// Replaces the entire style. Combine with builder methods by calling this first, or mutate
+    /// a [`ContextMenuStyle`] value before passing it here.
     pub fn style(mut self, style: ContextMenuStyle) -> Self {
         self.style = style;
         self
@@ -89,6 +99,46 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
 
     pub fn border_width(mut self, width: f32) -> Self {
         self.style.border_width = width;
+        self
+    }
+
+    pub fn row_label_inset(mut self, inset: f32) -> Self {
+        self.style.row_label_inset = inset;
+        self
+    }
+
+    pub fn submenu_flyout_overlap(mut self, overlap: f32) -> Self {
+        self.style.submenu_flyout_overlap = overlap;
+        self
+    }
+
+    pub fn hotkey_label_size(mut self, size: f32) -> Self {
+        self.style.hotkey_label_size = size;
+        self
+    }
+
+    pub fn label_hotkey_gap(mut self, gap: f32) -> Self {
+        self.style.label_hotkey_gap = gap;
+        self
+    }
+
+    pub fn hotkey_label_color(mut self, color: Color) -> Self {
+        self.style.hotkey_label_color = color;
+        self
+    }
+
+    pub fn icon_slot_width(mut self, width: f32) -> Self {
+        self.style.icon_slot_width = width;
+        self
+    }
+
+    pub fn icon_label_gap(mut self, gap: f32) -> Self {
+        self.style.icon_label_gap = gap;
+        self
+    }
+
+    pub fn panel_shadow(mut self, shadow: Shadow) -> Self {
+        self.style.panel_shadow = shadow;
         self
     }
 
