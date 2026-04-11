@@ -211,14 +211,16 @@ fn labeled_slider<'a>(
     value: f32,
     fmt: impl Fn(f32) -> String + 'a,
     on_change: impl Fn(f32) -> Message + Clone + 'a,
+    step: Option<f32>,
 ) -> Element<'a, Message> {
     let row_label = text(format!("{}: {}", label, fmt(value)));
-    column![
-        row_label,
-        slider(range, value, on_change).width(Length::Fill),
-    ]
-    .spacing(4)
-    .into()
+    let sl = slider(range, value, on_change);
+    let sl = match step {
+        Some(st) => sl.step(st),
+        None => sl,
+    }
+    .width(Length::Fill);
+    column![row_label, sl].spacing(4).into()
 }
 
 fn view(state: &State) -> Element<'_, Message> {
@@ -298,6 +300,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.panel_padding,
             |x| format!("{:.0}px", x),
             Message::PanelPadding,
+            None,
         ),
         labeled_slider(
             "Min width",
@@ -305,6 +308,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.min_width,
             |x| format!("{:.0}px", x),
             Message::MinWidth,
+            None,
         ),
         labeled_slider(
             "Label size",
@@ -312,6 +316,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.label_size,
             |x| format!("{:.1}px", x),
             Message::LabelSize,
+            None,
         ),
         labeled_slider(
             "Row height",
@@ -319,6 +324,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.row_height,
             |x| format!("{:.0}px", x),
             Message::RowHeight,
+            None,
         ),
         labeled_slider(
             "Row spacing",
@@ -326,6 +332,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.row_spacing,
             |x| format!("{:.0}px", x),
             Message::RowSpacing,
+            None,
         ),
         labeled_slider(
             "Border radius",
@@ -333,6 +340,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.border_radius,
             |x| format!("{:.0}px", x),
             Message::BorderRadius,
+            None,
         ),
         labeled_slider(
             "Border width",
@@ -340,6 +348,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.border_width,
             |x| format!("{:.1}px", x),
             Message::BorderWidth,
+            None,
         ),
         labeled_slider(
             "Submenu flyout overlap",
@@ -347,6 +356,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.submenu_flyout_overlap,
             |x| format!("{:.0}px", x),
             Message::SubmenuFlyoutOverlap,
+            None,
         ),
         labeled_slider(
             "Panel shadow blur",
@@ -354,6 +364,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.panel_shadow_blur,
             |x| format!("{:.0}px", x),
             Message::PanelShadowBlur,
+            None,
         ),
         labeled_slider(
             "Dismiss scrim opacity",
@@ -361,6 +372,7 @@ fn view(state: &State) -> Element<'_, Message> {
             state.scrim_alpha,
             |x| format!("{:.2}", x),
             Message::ScrimAlpha,
+            Some(0.01),
         ),
     ]
     .spacing(8);
