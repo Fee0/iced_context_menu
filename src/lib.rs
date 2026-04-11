@@ -21,8 +21,11 @@
 //! # Theming
 //!
 //! Use [`ContextMenuStyle`] for full control (colors, typography, separators, submenu chevron,
-//! flyout overlap, panel shadow, scrim). Presets [`ContextMenuStyle::example_dark`],
-//! [`ContextMenuStyle::example_light`], and [`ContextMenuStyle::example_warm`] are starting points.
+//! flyout overlap, panel shadow, scrim). For colors aligned with the iced `Theme` palette
+//! (`extended_palette`), use [`ContextMenuStyle::from_theme`], or [`ContextMenuStyle::dark`]
+//! / [`ContextMenuStyle::light`]
+//! for the Dark/Light palettes. Fixed demo palettes [`ContextMenuStyle::example_dark`],
+//! [`ContextMenuStyle::example_light`], and [`ContextMenuStyle::example_warm`] are also available.
 //!
 //! [`ContextMenu`] also exposes builder shortcuts for common layout fields (padding, row size,
 //! borders, hotkey column, icon column, shadow, etc.). Anything without a dedicated method can be

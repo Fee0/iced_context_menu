@@ -1,20 +1,25 @@
 ﻿use iced::widget::{
     button, checkbox, column, container, radio, row, rule, scrollable, slider, text,
 };
-use iced::{Color, Element, Length, Task};
+use iced::window::Settings;
+use iced::{Color, Element, Length, Size, Task};
 use iced_context_menu::{
     ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, SubmenuOpenMode,
 };
 
 fn main() -> iced::Result {
-    iced::application(|| State::default(), update, view).run()
+    iced::application(|| State::default(), update, view)
+        .window(Settings {
+            size: Size::new(1500.0, 1000.0),
+            ..Settings::default()
+        })
+        .run()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum StylePreset {
     Dark,
     Light,
-    Warm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -26,9 +31,8 @@ enum DemoOpenMode {
 
 fn merged_style(state: &State) -> ContextMenuStyle {
     let mut s = match state.style_preset {
-        StylePreset::Dark => ContextMenuStyle::example_dark(),
-        StylePreset::Light => ContextMenuStyle::example_light(),
-        StylePreset::Warm => ContextMenuStyle::example_warm(),
+        StylePreset::Dark => ContextMenuStyle::dark(),
+        StylePreset::Light => ContextMenuStyle::light(),
     };
     s.panel_padding = state.panel_padding;
     s.min_width = state.min_width;
@@ -62,7 +66,6 @@ enum Message {
     PanelShadowBlur(f32),
     ScrimAlpha(f32),
     StylePreset(StylePreset),
-    LongLabel(bool),
     DemoOpenMode(DemoOpenMode),
     RequestProgrammaticOpen,
 }
@@ -84,7 +87,6 @@ struct State {
     panel_shadow_blur: f32,
     scrim_alpha: f32,
     style_preset: StylePreset,
-    long_label: bool,
     demo_open_mode: DemoOpenMode,
     /// One-shot: set from the button, cleared when the menu opens.
     programmatic_open_pulse: bool,
@@ -108,7 +110,6 @@ impl Default for State {
             panel_shadow_blur: 12.0,
             scrim_alpha: 0.15,
             style_preset: StylePreset::Dark,
-            long_label: false,
             demo_open_mode: DemoOpenMode::default(),
             programmatic_open_pulse: false,
         }
@@ -123,13 +124,7 @@ fn demo_row_icon2() -> MenuIcon {
     MenuIcon::from_svg_bytes(include_bytes!("../svg/paste-svgrepo-com.svg"))
 }
 
-fn build_menu(long_label: bool) -> MenuSpec<'static> {
-    let copy_title: String = if long_label {
-        "Copy (long label to exercise min width)".into()
-    } else {
-        "Copy".into()
-    };
-
+fn build_menu() -> MenuSpec<'static> {
     let more_children = MenuSpec::new()
         .action(4_u64, "Rename", None, None)
         .submenu(
@@ -161,7 +156,7 @@ fn build_menu(long_label: bool) -> MenuSpec<'static> {
     MenuSpec::new()
         .action(
             1_u64,
-            copy_title,
+            "Copy".to_string(),
             Some(demo_row_icon()),
             Some("Ctrl+C".into()),
         )
@@ -196,7 +191,6 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::PanelShadowBlur(v) => state.panel_shadow_blur = v,
         Message::ScrimAlpha(v) => state.scrim_alpha = v,
         Message::StylePreset(p) => state.style_preset = p,
-        Message::LongLabel(v) => state.long_label = v,
         Message::DemoOpenMode(m) => {
             state.demo_open_mode = m;
             state.programmatic_open_pulse = false;
@@ -227,42 +221,40 @@ fn labeled_slider<'a>(
 
 fn view(state: &State) -> Element<'_, Message> {
     let behavior = column![
-        text("Behavior").size(16),
         text("How nested submenus open:"),
         column![
             radio(
-                "Hover — open as soon as pointer enters row",
+                "Hover",
                 SubmenuOpenMode::Hover,
                 Some(state.submenu_mode),
                 Message::SubmenuMode,
             ),
             radio(
-                "Click — open submenu on click",
+                "Click",
                 SubmenuOpenMode::Click,
                 Some(state.submenu_mode),
                 Message::SubmenuMode,
             ),
         ]
         .spacing(4),
+        rule::horizontal(1),
         checkbox(state.show_item_icons)
             .label("Show icons")
             .on_toggle(Message::ShowItemIcons),
         checkbox(state.close_on_select)
             .label("Close menu after selecting an action")
             .on_toggle(Message::CloseOnSelect),
-        checkbox(state.long_label)
-            .label("Long first row label")
-            .on_toggle(Message::LongLabel),
+        rule::horizontal(1),
         text("How the root menu opens:"),
         column![
             radio(
-                "Right-click on target (default)",
+                "Right-click on target",
                 DemoOpenMode::RightClick,
                 Some(state.demo_open_mode),
                 Message::DemoOpenMode,
             ),
             radio(
-                "Programmatic only — use button on target",
+                "Programmatic",
                 DemoOpenMode::Programmatic,
                 Some(state.demo_open_mode),
                 Message::DemoOpenMode,
@@ -273,29 +265,23 @@ fn view(state: &State) -> Element<'_, Message> {
     .spacing(8);
 
     let appearance = column![
-        text("Appearance").size(16),
         text("Example style preset"),
         column![
             radio(
-                "Dark (default)",
+                "Dark",
                 StylePreset::Dark,
                 Some(state.style_preset),
                 Message::StylePreset,
             ),
             radio(
-                "Light panel",
+                "Light",
                 StylePreset::Light,
-                Some(state.style_preset),
-                Message::StylePreset,
-            ),
-            radio(
-                "Warm",
-                StylePreset::Warm,
                 Some(state.style_preset),
                 Message::StylePreset,
             ),
         ]
         .spacing(4),
+        rule::horizontal(1),
         labeled_slider(
             "Panel padding",
             1.0..=40.0,
@@ -380,16 +366,9 @@ fn view(state: &State) -> Element<'_, Message> {
     .spacing(8);
 
     let controls = scrollable(
-        column![
-            text("Context menu settings").size(20),
-            text("Adjust values, then use the target area (right-click or programmatic open)."),
-            rule::horizontal(10),
-            behavior,
-            rule::horizontal(10),
-            appearance,
-        ]
-        .spacing(12)
-        .padding(12),
+        column![behavior, rule::horizontal(1), appearance,]
+            .spacing(12)
+            .padding(12),
     )
     .height(Length::Fill)
     .width(Length::Fill);
@@ -431,7 +410,7 @@ fn view(state: &State) -> Element<'_, Message> {
     };
 
     ContextMenu::new(content)
-        .items(build_menu(state.long_label))
+        .items(build_menu())
         .style(merged_style(state))
         .opens_with(open_mode)
         .on_open(Message::MenuOpened)

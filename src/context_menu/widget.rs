@@ -28,7 +28,8 @@ use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector
 /// Pass a full [`ContextMenuStyle`] with [`Self::style`], or override common fields with the
 /// builder methods (`panel_padding`, `row_label_inset`, [`Self::panel_shadow`], etc.). For any
 /// field without a dedicated method, use `let mut s = ContextMenuStyle::example_dark(); s.separator_color = …;`
-/// then `.style(s)`.
+/// then `.style(s)`. To match the app theme, build the style with
+/// [`ContextMenuStyle::from_theme`], [`ContextMenuStyle::dark`], or [`ContextMenuStyle::light`].
 ///
 /// ## Opening the menu
 ///

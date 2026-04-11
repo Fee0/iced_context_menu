@@ -3,7 +3,8 @@
 use crate::SubmenuChevronIcon;
 
 use iced::border::Radius;
-use iced::{Border, Color, Shadow, Vector};
+use iced::theme::palette;
+use iced::{Border, Color, Shadow, Theme, Vector};
 
 /// Colors and measurements for [`ContextMenu`](crate::ContextMenu) overlays.
 #[derive(Debug, Clone)]
@@ -96,75 +97,52 @@ impl Default for ContextMenuStyle {
 }
 
 impl ContextMenuStyle {
-    /// Dark palette for demos; identical to [`Default::default`].
-    pub fn example_dark() -> Self {
-        Self::default()
+    /// Menu colors derived from an [`iced::Theme`] palette (spacing and sizes match [`Self::default`]).
+    ///
+    /// Use this when the menu should match the application theme, including named variants
+    /// (Tokyo Night, Catppuccin, etc.), not only built-in dark/light.
+    pub fn from_theme(theme: &Theme) -> Self {
+        let mut style = Self::default();
+        let e = theme.extended_palette();
+        let surface = e.background.weak;
+
+        style.panel_background = surface.color;
+        style.panel_border = e.background.strong.color;
+        style.label_color = surface.text;
+        style.hotkey_label_color =
+            palette::mix(surface.text, surface.color, 0.45);
+        // `secondary.weak.text` is tuned for that swatch’s background, not the menu surface, so on
+        // light themes it can disappear over `surface`. Blend toward the panel instead.
+        style.disabled_color = palette::mix(surface.text, surface.color, 0.56);
+        style.separator_color = e.background.strong.color;
+        style.row_hover_background = e.background.neutral.color;
+        style.row_pressed_background = e.background.stronger.color;
+
+        style.dismiss_scrim = Color::from_rgba(
+            0.0,
+            0.0,
+            0.0,
+            if e.is_dark { 0.18 } else { 0.12 },
+        );
+
+        let shadow_alpha = if e.is_dark { 0.35 } else { 0.22 };
+        style.panel_shadow = Shadow {
+            color: Color::from_rgba(0.0, 0.0, 0.0, shadow_alpha),
+            offset: Vector::new(4.0, 4.0),
+            blur_radius: style.panel_shadow.blur_radius,
+        };
+
+        style
     }
 
-    /// Light panel with dark text (example / reference style).
-    pub fn example_light() -> Self {
-        Self {
-            panel_background: Color::from_rgb(0.96, 0.96, 0.98),
-            panel_border: Color::from_rgb(0.78, 0.78, 0.84),
-            border_width: 1.0,
-            border_radius: 6.0,
-            panel_padding: 6.0,
-            row_label_inset: 6.0,
-            min_width: 160.0,
-            row_spacing: 2.0,
-            label_size: 14.0,
-            submenu_chevron_icon: SubmenuChevronIcon::default(),
-            submenu_chevron_slot_width: 20.0,
-            submenu_flyout_overlap: 5.0,
-            icon_slot_width: 18.0,
-            icon_label_gap: 6.0,
-            hotkey_label_size: 12.0,
-            label_hotkey_gap: 14.0,
-            hotkey_label_color: Color::from_rgb(0.45, 0.45, 0.50),
-            label_color: Color::from_rgb(0.12, 0.12, 0.14),
-            disabled_color: Color::from_rgb(0.55, 0.55, 0.58),
-            separator_color: Color::from_rgb(0.82, 0.82, 0.88),
-            separator_height: 1.0,
-            separator_margin_vertical: 6.0,
-            row_height: 28.0,
-            row_hover_background: Color::from_rgb(0.82, 0.86, 0.94),
-            row_pressed_background: Color::from_rgb(0.72, 0.76, 0.88),
-            panel_shadow: default_panel_shadow(),
-            dismiss_scrim: Color::from_rgba(0.0, 0.0, 0.0, 0.12),
-        }
+    /// Same colors as [`Theme::Dark`] via [`Self::from_theme`]. Differs from [`Self::example_dark`], which uses a fixed demo palette.
+    pub fn dark() -> Self {
+        Self::from_theme(&Theme::Dark)
     }
 
-    /// Warm dark panel with cream text (example / reference style).
-    pub fn example_warm() -> Self {
-        Self {
-            panel_background: Color::from_rgb(0.18, 0.14, 0.12),
-            panel_border: Color::from_rgb(0.38, 0.30, 0.26),
-            border_width: 1.0,
-            border_radius: 6.0,
-            panel_padding: 6.0,
-            row_label_inset: 6.0,
-            min_width: 160.0,
-            row_spacing: 2.0,
-            label_size: 14.0,
-            submenu_chevron_icon: SubmenuChevronIcon::default(),
-            submenu_chevron_slot_width: 20.0,
-            submenu_flyout_overlap: 5.0,
-            icon_slot_width: 18.0,
-            icon_label_gap: 6.0,
-            hotkey_label_size: 12.0,
-            label_hotkey_gap: 14.0,
-            hotkey_label_color: Color::from_rgb(0.72, 0.65, 0.58),
-            label_color: Color::from_rgb(0.95, 0.90, 0.82),
-            disabled_color: Color::from_rgb(0.55, 0.48, 0.42),
-            separator_color: Color::from_rgb(0.38, 0.30, 0.26),
-            separator_height: 1.0,
-            separator_margin_vertical: 6.0,
-            row_height: 28.0,
-            row_hover_background: Color::from_rgb(0.42, 0.30, 0.22),
-            row_pressed_background: Color::from_rgb(0.35, 0.26, 0.20),
-            panel_shadow: default_panel_shadow(),
-            dismiss_scrim: Color::from_rgba(0.0, 0.0, 0.0, 0.18),
-        }
+    /// Same colors as [`Theme::Light`] via [`Self::from_theme`]. Differs from [`Self::example_light`], which uses a fixed demo palette.
+    pub fn light() -> Self {
+        Self::from_theme(&Theme::Light)
     }
 
     pub(crate) fn panel_border(&self) -> Border {
