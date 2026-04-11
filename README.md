@@ -10,7 +10,7 @@ nested submenus, optional SVG row icons, hotkey hints, and theme-aware styling.
 Add to `Cargo.toml`:
 
 ```toml
-iced_context_menu = { path = "https://github.com/Fee0/iced_context_menu.git" }
+iced_context_menu = { git = "https://github.com/Fee0/iced_context_menu.git" }
 ```
 
 Wrap any widget and supply a `MenuSpec` (build with `.action`, `.disabled`, `.separator`, `.submenu`). Run
