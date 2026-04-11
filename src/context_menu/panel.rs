@@ -27,17 +27,12 @@ pub(crate) struct RowGeom {
     pub node_idx: usize,
 }
 
-pub(crate) fn row_geometries<'a>(
-    nodes: &[MenuNode<'a>],
-    style: &ContextMenuStyle,
-) -> Vec<RowGeom> {
+pub(crate) fn row_geometries<'a>(nodes: &[MenuNode<'a>], style: &ContextMenuStyle) -> Vec<RowGeom> {
     let mut out = Vec::new();
     let mut y = 0.0_f32;
     for (node_idx, node) in nodes.iter().enumerate() {
         let h = match node {
-            MenuNode::Separator => {
-                style.separator_margin_vertical * 2.0 + style.separator_height
-            }
+            MenuNode::Separator => style.separator_margin_vertical * 2.0 + style.separator_height,
             _ => style.row_height + style.row_spacing,
         };
         out.push(RowGeom {
@@ -218,11 +213,12 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
         .map(|g| {
             layout::Node::new(Size::new(
                 width,
-                g.height - if matches!(nodes[g.node_idx], MenuNode::Separator) {
-                    0.0
-                } else {
-                    style.row_spacing
-                },
+                g.height
+                    - if matches!(nodes[g.node_idx], MenuNode::Separator) {
+                        0.0
+                    } else {
+                        style.row_spacing
+                    },
             ))
             .move_to(Point::new(0.0, style.panel_padding + g.y_offset))
         })
@@ -265,11 +261,7 @@ fn draw_row_icon<Renderer: svg::Renderer>(
         width: w,
         height: h,
     };
-    renderer.draw_svg(
-        svg::Svg::new(handle).color(color),
-        svg_bounds,
-        clip_bounds,
-    );
+    renderer.draw_svg(svg::Svg::new(handle).color(color), svg_bounds, clip_bounds);
 }
 
 pub(crate) fn draw_panel<'a, Renderer>(
@@ -301,9 +293,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
     let geoms = row_geometries(nodes, style);
     let row_layouts: Vec<_> = layout.children().collect();
     let inner = row_layouts.first();
-    let row_lays: Vec<_> = inner
-        .map(|l| l.children().collect())
-        .unwrap_or_default();
+    let row_lays: Vec<_> = inner.map(|l| l.children().collect()).unwrap_or_default();
 
     let pointer_row = cursor.position().and_then(|p| {
         geoms.iter().find_map(|g| {
@@ -322,9 +312,8 @@ pub(crate) fn draw_panel<'a, Renderer>(
     let font = renderer.default_font();
     let icon_col = icon_column_width(style, icons_enabled);
     let max_hk = max_hotkey_width_in_panel(renderer, style, nodes);
-    let row_content_left = |row_bounds: Rectangle| {
-        row_bounds.x + style.panel_padding + style.row_label_inset
-    };
+    let row_content_left =
+        |row_bounds: Rectangle| row_bounds.x + style.panel_padding + style.row_label_inset;
     let label_x_for_row = |row_bounds: Rectangle| row_content_left(row_bounds) + icon_col;
 
     for g in &geoms {
@@ -339,8 +328,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
         let is_focused = focus_path == row_path.as_slice();
 
         let hovered = pointer_row == Some(g.node_idx);
-        let open_chain =
-            !open_path.is_empty() && open_path.starts_with(row_path.as_slice());
+        let open_chain = !open_path.is_empty() && open_path.starts_with(row_path.as_slice());
         let show_row_highlight = !matches!(node, MenuNode::Separator)
             && (hovered || open_chain || (pointer_row.is_none() && is_focused));
 
@@ -411,9 +399,8 @@ pub(crate) fn draw_panel<'a, Renderer>(
                     }
                 }
                 let label_x = label_x_for_row(row_bounds);
-                let content_right = row_bounds.x + row_bounds.width
-                    - style.panel_padding
-                    - style.row_label_inset;
+                let content_right =
+                    row_bounds.x + row_bounds.width - style.panel_padding - style.row_label_inset;
                 let label_bounds_w = if max_hk > 0.0 {
                     (content_right - max_hk - style.label_hotkey_gap - label_x).max(0.0)
                 } else {

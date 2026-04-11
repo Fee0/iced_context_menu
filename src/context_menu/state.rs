@@ -116,7 +116,10 @@ pub(crate) fn submenu_children<'m>(
     None
 }
 
-pub(crate) fn node_at_path<'m>(nodes: &'m [MenuNode<'m>], path: &[usize]) -> Option<&'m MenuNode<'m>> {
+pub(crate) fn node_at_path<'m>(
+    nodes: &'m [MenuNode<'m>],
+    path: &[usize],
+) -> Option<&'m MenuNode<'m>> {
     let mut current = nodes;
     for (d, &idx) in path.iter().enumerate() {
         let node = current.get(idx)?;
@@ -131,7 +134,10 @@ pub(crate) fn node_at_path<'m>(nodes: &'m [MenuNode<'m>], path: &[usize]) -> Opt
     None
 }
 
-pub(crate) fn current_nodes<'m>(root: &'m [MenuNode<'m>], focus_path: &[usize]) -> &'m [MenuNode<'m>] {
+pub(crate) fn current_nodes<'m>(
+    root: &'m [MenuNode<'m>],
+    focus_path: &[usize],
+) -> &'m [MenuNode<'m>] {
     if focus_path.len() <= 1 {
         return root;
     }

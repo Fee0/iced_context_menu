@@ -6,10 +6,10 @@ use std::marker::PhantomData;
 use super::menu::{MenuItemId, MenuNode, MenuSpec};
 use super::style::ContextMenuStyle;
 
-use super::panel::{draw_panel, layout_panel, row_geometries, row_index_at_panel_y, Layout};
+use super::panel::{Layout, draw_panel, layout_panel, row_geometries, row_index_at_panel_y};
 use super::state::{
-    current_nodes, first_focusable, next_focusable, node_at_path, submenu_children,
-    sync_open_path_for_focus, ContextMenuState, SubmenuOpenMode,
+    ContextMenuState, SubmenuOpenMode, current_nodes, first_focusable, next_focusable,
+    node_at_path, submenu_children, sync_open_path_for_focus,
 };
 
 use iced::advanced::layout;
@@ -85,7 +85,9 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
             return;
         };
         match node {
-            MenuNode::Action { id, enabled: true, .. } => {
+            MenuNode::Action {
+                id, enabled: true, ..
+            } => {
                 if let Some(f) = on_select {
                     shell.publish(f(*id));
                 }
@@ -290,13 +292,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                     let open_path = self.state.open_path.clone();
                     let pb = panel_node.bounds();
                     Self::write_submenu_anchor_for_next_row(
-                        self.state,
-                        nodes,
-                        self.style,
-                        pb,
-                        panel_w,
-                        &open_path,
-                        0,
+                        self.state, nodes, self.style, pb, panel_w, &open_path, 0,
                     );
                 }
 
@@ -326,13 +322,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
                     let open_path = self.state.open_path.clone();
                     let pb = panel_node.bounds();
                     Self::write_submenu_anchor_for_next_row(
-                        self.state,
-                        nodes,
-                        self.style,
-                        pb,
-                        panel_w,
-                        &open_path,
-                        next,
+                        self.state, nodes, self.style, pb, panel_w, &open_path, next,
                     );
                 }
 
@@ -518,10 +508,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
             }
             Some(_) => {
                 if let Some(pl) = layout.children().next() {
-                    if cursor
-                        .position()
-                        .is_some_and(|p| pl.bounds().contains(p))
-                    {
+                    if cursor.position().is_some_and(|p| pl.bounds().contains(p)) {
                         return mouse::Interaction::Pointer;
                     }
                 }
