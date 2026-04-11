@@ -1,4 +1,6 @@
-﻿use iced::widget::{button, checkbox, column, container, radio, row, rule, scrollable, slider, text};
+﻿use iced::widget::{
+    button, checkbox, column, container, radio, row, rule, scrollable, slider, text,
+};
 use iced::{Color, Element, Length, Task};
 use iced_context_menu::{
     ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, SubmenuOpenMode,
@@ -296,7 +298,7 @@ fn view(state: &State) -> Element<'_, Message> {
         .spacing(4),
         labeled_slider(
             "Panel padding",
-            2.0..=20.0,
+            1.0..=40.0,
             state.panel_padding,
             |x| format!("{:.0}px", x),
             Message::PanelPadding,
@@ -312,7 +314,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ),
         labeled_slider(
             "Label size",
-            10.0..=22.0,
+            0.0..=50.0,
             state.label_size,
             |x| format!("{:.1}px", x),
             Message::LabelSize,
@@ -320,7 +322,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ),
         labeled_slider(
             "Row height",
-            20.0..=44.0,
+            20.0..=50.0,
             state.row_height,
             |x| format!("{:.0}px", x),
             Message::RowHeight,
@@ -328,7 +330,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ),
         labeled_slider(
             "Row spacing",
-            0.0..=12.0,
+            0.0..=30.0,
             state.row_spacing,
             |x| format!("{:.0}px", x),
             Message::RowSpacing,
@@ -336,7 +338,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ),
         labeled_slider(
             "Border radius",
-            0.0..=20.0,
+            0.0..=40.0,
             state.border_radius,
             |x| format!("{:.0}px", x),
             Message::BorderRadius,
@@ -344,7 +346,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ),
         labeled_slider(
             "Border width",
-            0.0..=4.0,
+            0.0..=20.0,
             state.border_width,
             |x| format!("{:.1}px", x),
             Message::BorderWidth,
@@ -352,7 +354,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ),
         labeled_slider(
             "Submenu flyout overlap",
-            0.0..=20.0,
+            0.0..=100.0,
             state.submenu_flyout_overlap,
             |x| format!("{:.0}px", x),
             Message::SubmenuFlyoutOverlap,
@@ -360,7 +362,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ),
         labeled_slider(
             "Panel shadow blur",
-            0.0..=32.0,
+            0.0..=100.0,
             state.panel_shadow_blur,
             |x| format!("{:.0}px", x),
             Message::PanelShadowBlur,
@@ -368,7 +370,7 @@ fn view(state: &State) -> Element<'_, Message> {
         ),
         labeled_slider(
             "Dismiss scrim opacity",
-            0.0..=0.45,
+            0.0..=1.0,
             state.scrim_alpha,
             |x| format!("{:.2}", x),
             Message::ScrimAlpha,
@@ -394,7 +396,7 @@ fn view(state: &State) -> Element<'_, Message> {
 
     let open_hint = match state.demo_open_mode {
         DemoOpenMode::RightClick => text("Right-click here").size(18),
-        DemoOpenMode::Programmatic => text("Programmatic mode — right-click does not open").size(18),
+        DemoOpenMode::Programmatic => text("Programmatic mode").size(18),
     };
 
     let maybe_open_btn = if state.demo_open_mode == DemoOpenMode::Programmatic {

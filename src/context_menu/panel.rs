@@ -8,7 +8,6 @@ use iced::advanced::renderer;
 use iced::advanced::svg;
 use iced::advanced::text::{self, Paragraph};
 use iced::alignment;
-use iced::border;
 use iced::mouse;
 use iced::{Color, Pixels, Point, Rectangle, Size};
 
@@ -358,7 +357,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: highlight_bounds,
-                    border: border::rounded(4.0),
+                    border: style.row_highlight_border(),
                     ..renderer::Quad::default()
                 },
                 if pressed {

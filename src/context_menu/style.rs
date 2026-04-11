@@ -174,4 +174,13 @@ impl ContextMenuStyle {
             radius: Radius::from(self.border_radius),
         }
     }
+
+    /// Border shape for row hover / pressed highlights (radius matches the panel).
+    pub(crate) fn row_highlight_border(&self) -> Border {
+        Border {
+            width: 0.0,
+            color: Color::TRANSPARENT,
+            radius: Radius::from(self.border_radius),
+        }
+    }
 }
