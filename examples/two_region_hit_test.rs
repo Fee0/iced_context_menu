@@ -9,12 +9,8 @@ use iced::advanced::{Clipboard, Renderer, Shell};
 use iced::mouse;
 use iced::widget::{column, container, text};
 use iced::window::Settings;
-use iced::{
-    Border, Color, Element, Event, Length, Point, Rectangle, Size, Task, Theme,
-};
-use iced_context_menu::{
-    ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuItemId, MenuSpec,
-};
+use iced::{Border, Color, Element, Event, Length, Point, Rectangle, Size, Task, Theme};
+use iced_context_menu::{ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuItemId, MenuSpec};
 
 fn main() -> iced::Result {
     iced::application(|| State::default(), update, view)

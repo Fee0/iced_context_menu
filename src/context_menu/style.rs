@@ -109,8 +109,7 @@ impl ContextMenuStyle {
         style.panel_background = surface.color;
         style.panel_border = e.background.strong.color;
         style.label_color = surface.text;
-        style.hotkey_label_color =
-            palette::mix(surface.text, surface.color, 0.45);
+        style.hotkey_label_color = palette::mix(surface.text, surface.color, 0.45);
         // `secondary.weak.text` is tuned for that swatch’s background, not the menu surface, so on
         // light themes it can disappear over `surface`. Blend toward the panel instead.
         style.disabled_color = palette::mix(surface.text, surface.color, 0.56);
@@ -118,12 +117,7 @@ impl ContextMenuStyle {
         style.row_hover_background = e.background.neutral.color;
         style.row_pressed_background = e.background.stronger.color;
 
-        style.dismiss_scrim = Color::from_rgba(
-            0.0,
-            0.0,
-            0.0,
-            if e.is_dark { 0.18 } else { 0.12 },
-        );
+        style.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, if e.is_dark { 0.18 } else { 0.12 });
 
         let shadow_alpha = if e.is_dark { 0.35 } else { 0.22 };
         style.panel_shadow = Shadow {
