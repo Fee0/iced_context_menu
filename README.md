@@ -43,8 +43,9 @@ Use `ContextMenuStyle::from_theme` (or `ContextMenuStyle::dark` / `::light`) to 
 `ContextMenuStyle` and pass `.style(…)`. The widget also has builder shortcuts for padding, row size, borders, shadow,
 and more.
 
-## Example
+## Examples
 
 ```bash
 cargo run --example right_click
+cargo run --example two_region_hit_test
 ```

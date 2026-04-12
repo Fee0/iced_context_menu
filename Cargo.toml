@@ -10,6 +10,10 @@ iced = { version = "0.14", features = ["advanced", "svg"] }
 name = "right_click"
 path = "examples/right_click.rs"
 
+[[example]]
+name = "two_region_hit_test"
+path = "examples/two_region_hit_test.rs"
+
 [dev-dependencies]
 iced = { version = "0.14", features = ["advanced", "svg"] }
 
