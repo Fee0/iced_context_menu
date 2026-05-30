@@ -37,7 +37,8 @@ Open behavior defaults to **right-click** on the wrapped region. Programmatic op
 
 ## Examples
 
+Configure and test your context menu:
+
 ```bash
 cargo run --example right_click
-cargo run --example two_region_hit_test
 ```
