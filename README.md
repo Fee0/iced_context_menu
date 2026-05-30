@@ -13,8 +13,7 @@ Add to `Cargo.toml`:
 iced_context_menu = { git = "https://github.com/Fee0/iced_context_menu.git" }
 ```
 
-Wrap any widget and supply a `MenuSpec` (build with `.action`, `.disabled`, `.separator`, `.submenu`). Run
-`cargo doc --open` for full API docs.
+Wrap any widget and supply a `MenuSpec`. Build with `.action`, `.disabled`, `.separator`, `.submenu`.
 
 ```rust
 use iced::widget::text;
@@ -34,14 +33,7 @@ fn view() -> iced::Element<'_, Message> {
 }
 ```
 
-Open behavior defaults to **right-click** on the wrapped region. For parent-controlled open, use
-`ContextMenuOpen::Programmatic` with `ContextMenu::opens_with`.
-
-## Theming
-
-Use `ContextMenuStyle::from_theme` (or `ContextMenuStyle::dark` / `::light`) to follow the app `Theme`, or set fields on
-`ContextMenuStyle` and pass `.style(…)`. The widget also has builder shortcuts for padding, row size, borders, shadow,
-and more.
+Open behavior defaults to **right-click** on the wrapped region. Programmatic open also supported.
 
 ## Examples
 
