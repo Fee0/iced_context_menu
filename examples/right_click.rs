@@ -5,7 +5,7 @@ use iced::window::Settings;
 use iced::{Color, Element, Length, Size, Task};
 use iced_context_menu::{
     ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, Shaping,
-    SubmenuOpenMode,
+    SubmenuChevronIcon, SubmenuOpenMode,
 };
 
 fn main() -> iced::Result {
@@ -37,6 +37,8 @@ fn merged_style(state: &State) -> ContextMenuStyle {
     };
     s.panel_shadow.blur_radius = state.panel_shadow_blur;
     s.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, state.scrim_alpha);
+    let hk = s.hotkey_label_color;
+    s.hotkey_label_color = Color::from_rgba(hk.r, hk.g, hk.b, hk.a * state.hotkey_label_alpha);
     s
 }
 
@@ -58,6 +60,17 @@ enum Message {
     SubmenuFlyoutOverlap(f32),
     PanelShadowBlur(f32),
     ScrimAlpha(f32),
+    HotkeyLabelAlpha(f32),
+    RowLabelInset(f32),
+    SubmenuChevronIcon(SubmenuChevronIcon),
+    SubmenuChevronSlotWidth(f32),
+    IconSlotWidth(f32),
+    IconLabelGap(f32),
+    IconGlyphSize(f32),
+    HotkeyLabelSize(f32),
+    LabelHotkeyGap(f32),
+    SeparatorHeight(f32),
+    SeparatorMarginVertical(f32),
     StylePreset(StylePreset),
     DemoOpenMode(DemoOpenMode),
     RequestProgrammaticOpen,
@@ -79,6 +92,17 @@ struct State {
     submenu_flyout_overlap: f32,
     panel_shadow_blur: f32,
     scrim_alpha: f32,
+    hotkey_label_alpha: f32,
+    row_label_inset: f32,
+    submenu_chevron_icon: SubmenuChevronIcon,
+    submenu_chevron_slot_width: f32,
+    icon_slot_width: f32,
+    icon_label_gap: f32,
+    icon_glyph_size: f32,
+    hotkey_label_size: f32,
+    label_hotkey_gap: f32,
+    separator_height: f32,
+    separator_margin_vertical: f32,
     style_preset: StylePreset,
     demo_open_mode: DemoOpenMode,
     /// One-shot: set from the button, cleared when the menu opens.
@@ -102,6 +126,17 @@ impl Default for State {
             submenu_flyout_overlap: 5.0,
             panel_shadow_blur: 12.0,
             scrim_alpha: 0.15,
+            hotkey_label_alpha: 1.0,
+            row_label_inset: 6.0,
+            submenu_chevron_icon: SubmenuChevronIcon::default(),
+            submenu_chevron_slot_width: 20.0,
+            icon_slot_width: 18.0,
+            icon_label_gap: 6.0,
+            icon_glyph_size: 16.0,
+            hotkey_label_size: 12.0,
+            label_hotkey_gap: 14.0,
+            separator_height: 1.0,
+            separator_margin_vertical: 6.0,
             style_preset: StylePreset::Dark,
             demo_open_mode: DemoOpenMode::default(),
             programmatic_open_pulse: false,
@@ -192,6 +227,17 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::SubmenuFlyoutOverlap(v) => state.submenu_flyout_overlap = v,
         Message::PanelShadowBlur(v) => state.panel_shadow_blur = v,
         Message::ScrimAlpha(v) => state.scrim_alpha = v,
+        Message::HotkeyLabelAlpha(v) => state.hotkey_label_alpha = v,
+        Message::RowLabelInset(v) => state.row_label_inset = v,
+        Message::SubmenuChevronIcon(i) => state.submenu_chevron_icon = i,
+        Message::SubmenuChevronSlotWidth(v) => state.submenu_chevron_slot_width = v,
+        Message::IconSlotWidth(v) => state.icon_slot_width = v,
+        Message::IconLabelGap(v) => state.icon_label_gap = v,
+        Message::IconGlyphSize(v) => state.icon_glyph_size = v,
+        Message::HotkeyLabelSize(v) => state.hotkey_label_size = v,
+        Message::LabelHotkeyGap(v) => state.label_hotkey_gap = v,
+        Message::SeparatorHeight(v) => state.separator_height = v,
+        Message::SeparatorMarginVertical(v) => state.separator_margin_vertical = v,
         Message::StylePreset(p) => state.style_preset = p,
         Message::DemoOpenMode(m) => {
             state.demo_open_mode = m;
@@ -266,8 +312,8 @@ fn view(state: &State) -> Element<'_, Message> {
     ]
     .spacing(8);
 
-    let appearance = column![
-        text("Example style preset"),
+    let theme = column![
+        text("Theme preset").size(14),
         column![
             radio(
                 "Dark",
@@ -283,7 +329,35 @@ fn view(state: &State) -> Element<'_, Message> {
             ),
         ]
         .spacing(4),
-        rule::horizontal(1),
+        labeled_slider(
+            "Panel shadow blur",
+            0.0..=100.0,
+            state.panel_shadow_blur,
+            |x| format!("{:.0}px", x),
+            Message::PanelShadowBlur,
+            None,
+        ),
+        labeled_slider(
+            "Dismiss scrim opacity",
+            0.0..=1.0,
+            state.scrim_alpha,
+            |x| format!("{:.2}", x),
+            Message::ScrimAlpha,
+            Some(0.01),
+        ),
+        labeled_slider(
+            "Hotkey hint opacity",
+            0.0..=1.0,
+            state.hotkey_label_alpha,
+            |x| format!("{:.2}", x),
+            Message::HotkeyLabelAlpha,
+            Some(0.01),
+        ),
+    ]
+    .spacing(8);
+
+    let panel = column![
+        text("Panel").size(14),
         labeled_slider(
             "Panel padding",
             1.0..=40.0,
@@ -301,27 +375,11 @@ fn view(state: &State) -> Element<'_, Message> {
             None,
         ),
         labeled_slider(
-            "Label size",
-            0.0..=50.0,
-            state.label_size,
-            |x| format!("{:.1}px", x),
-            Message::LabelSize,
-            None,
-        ),
-        labeled_slider(
-            "Row height",
-            20.0..=50.0,
-            state.row_height,
-            |x| format!("{:.0}px", x),
-            Message::RowHeight,
-            None,
-        ),
-        labeled_slider(
-            "Row spacing",
+            "Row label inset",
             0.0..=30.0,
-            state.row_spacing,
+            state.row_label_inset,
             |x| format!("{:.0}px", x),
-            Message::RowSpacing,
+            Message::RowLabelInset,
             None,
         ),
         labeled_slider(
@@ -341,7 +399,107 @@ fn view(state: &State) -> Element<'_, Message> {
             None,
         ),
         labeled_slider(
-            "Submenu flyout overlap",
+            "Separator height",
+            0.0..=8.0,
+            state.separator_height,
+            |x| format!("{:.1}px", x),
+            Message::SeparatorHeight,
+            None,
+        ),
+        labeled_slider(
+            "Separator margin",
+            0.0..=24.0,
+            state.separator_margin_vertical,
+            |x| format!("{:.0}px", x),
+            Message::SeparatorMarginVertical,
+            None,
+        ),
+    ]
+    .spacing(8);
+
+    let rows = column![
+        text("Rows").size(14),
+        labeled_slider(
+            "Label size",
+            8.0..=24.0,
+            state.label_size,
+            |x| format!("{:.1}px", x),
+            Message::LabelSize,
+            None,
+        ),
+        labeled_slider(
+            "Row height",
+            20.0..=50.0,
+            state.row_height,
+            |x| format!("{:.0}px", x),
+            Message::RowHeight,
+            None,
+        ),
+        labeled_slider(
+            "Row spacing",
+            0.0..=16.0,
+            state.row_spacing,
+            |x| format!("{:.0}px", x),
+            Message::RowSpacing,
+            None,
+        ),
+    ]
+    .spacing(8);
+
+    let icons = column![
+        text("Icons (when enabled)").size(14),
+        labeled_slider(
+            "Icon slot width",
+            8.0..=40.0,
+            state.icon_slot_width,
+            |x| format!("{:.0}px", x),
+            Message::IconSlotWidth,
+            None,
+        ),
+        labeled_slider(
+            "Icon / label gap",
+            0.0..=24.0,
+            state.icon_label_gap,
+            |x| format!("{:.0}px", x),
+            Message::IconLabelGap,
+            None,
+        ),
+        labeled_slider(
+            "Glyph icon size",
+            8.0..=28.0,
+            state.icon_glyph_size,
+            |x| format!("{:.0}px", x),
+            Message::IconGlyphSize,
+            None,
+        ),
+    ]
+    .spacing(8);
+
+    let hotkeys = column![
+        text("Hotkey column").size(14),
+        labeled_slider(
+            "Hotkey label size",
+            8.0..=20.0,
+            state.hotkey_label_size,
+            |x| format!("{:.1}px", x),
+            Message::HotkeyLabelSize,
+            None,
+        ),
+        labeled_slider(
+            "Label / hotkey gap",
+            0.0..=40.0,
+            state.label_hotkey_gap,
+            |x| format!("{:.0}px", x),
+            Message::LabelHotkeyGap,
+            None,
+        ),
+    ]
+    .spacing(8);
+
+    let submenus = column![
+        text("Submenus").size(14),
+        labeled_slider(
+            "Flyout overlap",
             0.0..=100.0,
             state.submenu_flyout_overlap,
             |x| format!("{:.0}px", x),
@@ -349,26 +507,61 @@ fn view(state: &State) -> Element<'_, Message> {
             None,
         ),
         labeled_slider(
-            "Panel shadow blur",
-            0.0..=100.0,
-            state.panel_shadow_blur,
+            "Chevron slot width",
+            8.0..=40.0,
+            state.submenu_chevron_slot_width,
             |x| format!("{:.0}px", x),
-            Message::PanelShadowBlur,
+            Message::SubmenuChevronSlotWidth,
             None,
         ),
-        labeled_slider(
-            "Dismiss scrim opacity",
-            0.0..=1.0,
-            state.scrim_alpha,
-            |x| format!("{:.2}", x),
-            Message::ScrimAlpha,
-            Some(0.01),
-        ),
+        text("Chevron icon").size(12),
+        column![
+            radio(
+                "Arrow next (small)",
+                SubmenuChevronIcon::ArrowNextSmall,
+                Some(state.submenu_chevron_icon),
+                Message::SubmenuChevronIcon,
+            ),
+            radio(
+                "Arrow next",
+                SubmenuChevronIcon::ArrowNext,
+                Some(state.submenu_chevron_icon),
+                Message::SubmenuChevronIcon,
+            ),
+            radio(
+                "Arrow right (333)",
+                SubmenuChevronIcon::ArrowRight333,
+                Some(state.submenu_chevron_icon),
+                Message::SubmenuChevronIcon,
+            ),
+            radio(
+                "Arrow right (336)",
+                SubmenuChevronIcon::ArrowRight336,
+                Some(state.submenu_chevron_icon),
+                Message::SubmenuChevronIcon,
+            ),
+        ]
+        .spacing(4),
+    ]
+    .spacing(8);
+
+    let appearance = column![
+        theme,
+        rule::horizontal(1),
+        panel,
+        rule::horizontal(1),
+        rows,
+        rule::horizontal(1),
+        icons,
+        rule::horizontal(1),
+        hotkeys,
+        rule::horizontal(1),
+        submenus,
     ]
     .spacing(8);
 
     let controls = scrollable(
-        column![behavior, rule::horizontal(1), appearance,]
+        column![behavior, rule::horizontal(1), appearance]
             .spacing(12)
             .padding(12),
     )
@@ -422,6 +615,16 @@ fn view(state: &State) -> Element<'_, Message> {
         .border_radius(state.border_radius)
         .border_width(state.border_width)
         .submenu_flyout_overlap(state.submenu_flyout_overlap)
+        .row_label_inset(state.row_label_inset)
+        .submenu_chevron_icon(state.submenu_chevron_icon)
+        .submenu_chevron_slot_width(state.submenu_chevron_slot_width)
+        .icon_slot_width(state.icon_slot_width)
+        .icon_label_gap(state.icon_label_gap)
+        .icon_glyph_size(state.icon_glyph_size)
+        .hotkey_label_size(state.hotkey_label_size)
+        .label_hotkey_gap(state.label_hotkey_gap)
+        .separator_height(state.separator_height)
+        .separator_margin_vertical(state.separator_margin_vertical)
         .opens_with(open_mode)
         .on_open(Message::MenuOpened)
         .on_close(Message::MenuClosed)
