@@ -35,14 +35,6 @@ fn merged_style(state: &State) -> ContextMenuStyle {
         StylePreset::Dark => ContextMenuStyle::dark(),
         StylePreset::Light => ContextMenuStyle::light(),
     };
-    s.panel_padding = state.panel_padding;
-    s.min_width = state.min_width;
-    s.label_size = state.label_size;
-    s.row_height = state.row_height;
-    s.row_spacing = state.row_spacing;
-    s.border_radius = state.border_radius;
-    s.border_width = state.border_width;
-    s.submenu_flyout_overlap = state.submenu_flyout_overlap;
     s.panel_shadow.blur_radius = state.panel_shadow_blur;
     s.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, state.scrim_alpha);
     s
@@ -422,6 +414,14 @@ fn view(state: &State) -> Element<'_, Message> {
     ContextMenu::new(content)
         .items(build_menu())
         .style(merged_style(state))
+        .panel_padding(state.panel_padding)
+        .min_width(state.min_width)
+        .label_size(state.label_size)
+        .row_height(state.row_height)
+        .row_spacing(state.row_spacing)
+        .border_radius(state.border_radius)
+        .border_width(state.border_width)
+        .submenu_flyout_overlap(state.submenu_flyout_overlap)
         .opens_with(open_mode)
         .on_open(Message::MenuOpened)
         .on_close(Message::MenuClosed)

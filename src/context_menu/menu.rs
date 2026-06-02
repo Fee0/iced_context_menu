@@ -12,9 +12,9 @@
 use std::borrow::Cow;
 use std::fmt;
 
+use iced::Font;
 use iced::advanced::svg;
 use iced::advanced::text::Shaping;
-use iced::Font;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MenuItemId(pub u64);
@@ -28,7 +28,7 @@ impl fmt::Display for MenuItemId {
 /// Row icon shown to the left of a label when [`crate::ContextMenu::show_item_icons`] is true.
 ///
 /// Use [`MenuIcon::from_svg_bytes`] for vector assets, or [`MenuIcon::from_glyph`] for a text glyph
-/// (e.g. icon-font codepoints). Glyph icons use [`ContextMenuStyle::icon_glyph_size`] and inherit
+/// (e.g. icon-font codepoints). Glyph icons use [`crate::ContextMenu::icon_glyph_size`] and inherit
 /// row label / disabled color at draw time.
 #[derive(Debug, Clone)]
 pub enum MenuIcon {

@@ -2,11 +2,14 @@ use std::marker::PhantomData;
 
 use super::menu::{MenuItemId, MenuNode, MenuSpec};
 use super::open::ContextMenuOpen;
+use super::panel::PanelMetrics;
 use super::style::ContextMenuStyle;
 
 use super::menu_overlay::MenuOverlay;
 use super::panel::Layout;
 use super::state::{ContextMenuState, SubmenuOpenMode};
+
+use crate::SubmenuChevronIcon;
 
 use iced::advanced::layout;
 use iced::advanced::overlay;
@@ -25,11 +28,11 @@ use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector
 ///
 /// ## Theming
 ///
-/// Pass a full [`ContextMenuStyle`] with [`Self::style`], or override common fields with the
-/// builder methods (`panel_padding`, `row_label_inset`, [`Self::panel_shadow`], etc.). For any
-/// field without a dedicated method, use `let mut s = ContextMenuStyle::example_dark(); s.separator_color = …;`
-/// then `.style(s)`. To match the app theme, build the style with
-/// [`ContextMenuStyle::from_theme`], [`ContextMenuStyle::dark`], or [`ContextMenuStyle::light`].
+/// Pass a full [`ContextMenuStyle`] with [`Self::style`] for colors and effects. Spacing, sizing,
+/// and typography measurements use the builder methods (`panel_padding`, `row_height`, etc.).
+/// For style fields without a dedicated method, mutate a [`ContextMenuStyle`] before calling
+/// [`.style`](Self::style). To match the app theme, use [`ContextMenuStyle::from_theme`],
+/// [`ContextMenuStyle::dark`], or [`ContextMenuStyle::light`].
 ///
 /// ## Opening the menu
 ///
@@ -37,8 +40,26 @@ use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector
 /// [`ContextMenuOpen::Programmatic`] for parent-controlled open (see that variant’s docs).
 pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
     content: Element<'a, Message, Theme, Renderer>,
-    items: MenuSpec<'a>,
+    pub(crate) items: MenuSpec<'a>,
     style: ContextMenuStyle,
+    pub(crate) border_width: f32,
+    pub(crate) border_radius: f32,
+    pub(crate) panel_padding: f32,
+    pub(crate) row_label_inset: f32,
+    pub(crate) min_width: f32,
+    pub(crate) row_spacing: f32,
+    pub(crate) label_size: f32,
+    pub(crate) submenu_chevron_icon: SubmenuChevronIcon,
+    pub(crate) submenu_chevron_slot_width: f32,
+    pub(crate) submenu_flyout_overlap: f32,
+    pub(crate) icon_slot_width: f32,
+    pub(crate) icon_label_gap: f32,
+    pub(crate) icon_glyph_size: f32,
+    pub(crate) hotkey_label_size: f32,
+    pub(crate) label_hotkey_gap: f32,
+    pub(crate) separator_height: f32,
+    pub(crate) separator_margin_vertical: f32,
+    pub(crate) row_height: f32,
     open: ContextMenuOpen,
     submenu_mode: SubmenuOpenMode,
     icons_enabled: bool,
@@ -55,6 +76,24 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
             content: content.into(),
             items: MenuSpec::default(),
             style: ContextMenuStyle::default(),
+            border_width: 1.0,
+            border_radius: 6.0,
+            panel_padding: 6.0,
+            row_label_inset: 6.0,
+            min_width: 160.0,
+            row_spacing: 2.0,
+            label_size: 14.0,
+            submenu_chevron_icon: SubmenuChevronIcon::default(),
+            submenu_chevron_slot_width: 20.0,
+            submenu_flyout_overlap: 5.0,
+            icon_slot_width: 18.0,
+            icon_label_gap: 6.0,
+            icon_glyph_size: 16.0,
+            hotkey_label_size: 12.0,
+            label_hotkey_gap: 14.0,
+            separator_height: 1.0,
+            separator_margin_vertical: 6.0,
+            row_height: 28.0,
             open: ContextMenuOpen::default(),
             submenu_mode: SubmenuOpenMode::default(),
             icons_enabled: false,
@@ -65,70 +104,106 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
         }
     }
 
+    pub(crate) fn panel_metrics(&self) -> PanelMetrics {
+        PanelMetrics {
+            border_width: self.border_width,
+            border_radius: self.border_radius,
+            panel_padding: self.panel_padding,
+            row_label_inset: self.row_label_inset,
+            min_width: self.min_width,
+            row_spacing: self.row_spacing,
+            label_size: self.label_size,
+            submenu_chevron_icon: self.submenu_chevron_icon,
+            submenu_chevron_slot_width: self.submenu_chevron_slot_width,
+            submenu_flyout_overlap: self.submenu_flyout_overlap,
+            icon_slot_width: self.icon_slot_width,
+            icon_label_gap: self.icon_label_gap,
+            icon_glyph_size: self.icon_glyph_size,
+            hotkey_label_size: self.hotkey_label_size,
+            label_hotkey_gap: self.label_hotkey_gap,
+            separator_height: self.separator_height,
+            separator_margin_vertical: self.separator_margin_vertical,
+            row_height: self.row_height,
+        }
+    }
+
+    pub(crate) fn menu_style(&self) -> &ContextMenuStyle {
+        &self.style
+    }
+
     pub fn items(mut self, spec: MenuSpec<'a>) -> Self {
         self.items = spec;
         self
     }
 
-    /// Replaces the entire style. Combine with builder methods by calling this first, or mutate
-    /// a [`ContextMenuStyle`] value before passing it here.
+    /// Replaces colors and effects only; layout fields on this widget are unchanged.
     pub fn style(mut self, style: ContextMenuStyle) -> Self {
         self.style = style;
         self
     }
 
     pub fn panel_padding(mut self, padding: f32) -> Self {
-        self.style.panel_padding = padding;
+        self.panel_padding = padding;
         self
     }
 
     pub fn min_width(mut self, width: f32) -> Self {
-        self.style.min_width = width;
+        self.min_width = width;
         self
     }
 
     pub fn label_size(mut self, size: f32) -> Self {
-        self.style.label_size = size;
+        self.label_size = size;
         self
     }
 
     pub fn row_height(mut self, height: f32) -> Self {
-        self.style.row_height = height;
+        self.row_height = height;
         self
     }
 
     pub fn row_spacing(mut self, spacing: f32) -> Self {
-        self.style.row_spacing = spacing;
+        self.row_spacing = spacing;
         self
     }
 
     pub fn border_radius(mut self, radius: f32) -> Self {
-        self.style.border_radius = radius;
+        self.border_radius = radius;
         self
     }
 
     pub fn border_width(mut self, width: f32) -> Self {
-        self.style.border_width = width;
+        self.border_width = width;
         self
     }
 
     pub fn row_label_inset(mut self, inset: f32) -> Self {
-        self.style.row_label_inset = inset;
+        self.row_label_inset = inset;
         self
     }
 
     pub fn submenu_flyout_overlap(mut self, overlap: f32) -> Self {
-        self.style.submenu_flyout_overlap = overlap;
+        self.submenu_flyout_overlap = overlap;
+        self
+    }
+
+    pub fn submenu_chevron_icon(mut self, icon: SubmenuChevronIcon) -> Self {
+        self.submenu_chevron_icon = icon;
+        self
+    }
+
+    pub fn submenu_chevron_slot_width(mut self, width: f32) -> Self {
+        self.submenu_chevron_slot_width = width;
         self
     }
 
     pub fn hotkey_label_size(mut self, size: f32) -> Self {
-        self.style.hotkey_label_size = size;
+        self.hotkey_label_size = size;
         self
     }
 
     pub fn label_hotkey_gap(mut self, gap: f32) -> Self {
-        self.style.label_hotkey_gap = gap;
+        self.label_hotkey_gap = gap;
         self
     }
 
@@ -138,12 +213,27 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
     }
 
     pub fn icon_slot_width(mut self, width: f32) -> Self {
-        self.style.icon_slot_width = width;
+        self.icon_slot_width = width;
         self
     }
 
     pub fn icon_label_gap(mut self, gap: f32) -> Self {
-        self.style.icon_label_gap = gap;
+        self.icon_label_gap = gap;
+        self
+    }
+
+    pub fn icon_glyph_size(mut self, size: f32) -> Self {
+        self.icon_glyph_size = size;
+        self
+    }
+
+    pub fn separator_height(mut self, height: f32) -> Self {
+        self.separator_height = height;
+        self
+    }
+
+    pub fn separator_margin_vertical(mut self, margin: f32) -> Self {
+        self.separator_margin_vertical = margin;
         self
     }
 
@@ -346,8 +436,7 @@ where
             Renderer,
         > {
             state,
-            items: &self.items,
-            style: &self.style,
+            menu: self,
             submenu_mode: self.submenu_mode,
             icons_enabled: self.icons_enabled,
             close_on_select: self.close_on_select,

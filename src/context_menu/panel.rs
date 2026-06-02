@@ -2,6 +2,7 @@
 
 use super::menu::{MenuIcon, MenuNode};
 use super::style::ContextMenuStyle;
+use crate::SubmenuChevronIcon;
 
 use iced::advanced::layout;
 use iced::advanced::renderer;
@@ -11,9 +12,32 @@ use iced::alignment;
 use iced::mouse;
 use iced::{Color, Font, Pixels, Point, Rectangle, Size};
 
-fn icon_column_width(style: &ContextMenuStyle, icons_enabled: bool) -> f32 {
+/// Layout measurements copied from [`super::widget::ContextMenu`] for panel code (avoids a widget/panel module cycle).
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PanelMetrics {
+    pub border_width: f32,
+    pub border_radius: f32,
+    pub panel_padding: f32,
+    pub row_label_inset: f32,
+    pub min_width: f32,
+    pub row_spacing: f32,
+    pub label_size: f32,
+    pub submenu_chevron_icon: SubmenuChevronIcon,
+    pub submenu_chevron_slot_width: f32,
+    pub submenu_flyout_overlap: f32,
+    pub icon_slot_width: f32,
+    pub icon_label_gap: f32,
+    pub icon_glyph_size: f32,
+    pub hotkey_label_size: f32,
+    pub label_hotkey_gap: f32,
+    pub separator_height: f32,
+    pub separator_margin_vertical: f32,
+    pub row_height: f32,
+}
+
+fn icon_column_width(metrics: &PanelMetrics, icons_enabled: bool) -> f32 {
     if icons_enabled {
-        style.icon_slot_width + style.icon_label_gap
+        metrics.icon_slot_width + metrics.icon_label_gap
     } else {
         0.0
     }
@@ -27,13 +51,15 @@ pub(crate) struct RowGeom {
     pub node_idx: usize,
 }
 
-pub(crate) fn row_geometries<'a>(nodes: &[MenuNode<'a>], style: &ContextMenuStyle) -> Vec<RowGeom> {
+pub(crate) fn row_geometries<'a>(nodes: &[MenuNode<'a>], metrics: &PanelMetrics) -> Vec<RowGeom> {
     let mut out = Vec::new();
     let mut y = 0.0_f32;
     for (node_idx, node) in nodes.iter().enumerate() {
         let h = match node {
-            MenuNode::Separator => style.separator_margin_vertical * 2.0 + style.separator_height,
-            _ => style.row_height + style.row_spacing,
+            MenuNode::Separator => {
+                metrics.separator_margin_vertical * 2.0 + metrics.separator_height
+            }
+            _ => metrics.row_height + metrics.row_spacing,
         };
         out.push(RowGeom {
             y_offset: y,
@@ -53,19 +79,19 @@ fn panel_height(geoms: &[RowGeom]) -> f32 {
 /// `panel_relative_y` is the cursor Y in coordinates of the panel node's [`Layout::bounds`].
 pub(crate) fn row_index_at_panel_y<'a>(
     nodes: &[MenuNode<'a>],
-    style: &ContextMenuStyle,
+    metrics: &PanelMetrics,
     panel_relative_y: f32,
 ) -> Option<usize> {
-    let y_content = panel_relative_y - style.border_width - style.panel_padding;
+    let y_content = panel_relative_y - metrics.border_width - metrics.panel_padding;
     if y_content < 0.0 {
         return None;
     }
-    let geoms = row_geometries(nodes, style);
+    let geoms = row_geometries(nodes, metrics);
     for g in &geoms {
         let row_h = if matches!(nodes[g.node_idx], MenuNode::Separator) {
             g.height
         } else {
-            g.height - style.row_spacing
+            g.height - metrics.row_spacing
         };
         if y_content >= g.y_offset && y_content < g.y_offset + row_h {
             return Some(g.node_idx);
@@ -76,14 +102,14 @@ pub(crate) fn row_index_at_panel_y<'a>(
 
 fn measure_label_width<Renderer: text::Renderer>(
     renderer: &Renderer,
-    style: &ContextMenuStyle,
+    metrics: &PanelMetrics,
     label: &str,
 ) -> f32 {
-    let size = Pixels(style.label_size);
+    let size = Pixels(metrics.label_size);
     let line_height = text::LineHeight::default();
     let text = text::Text {
         content: label,
-        bounds: Size::new(f32::INFINITY, style.row_height),
+        bounds: Size::new(f32::INFINITY, metrics.row_height),
         size,
         line_height,
         font: renderer.default_font(),
@@ -97,14 +123,14 @@ fn measure_label_width<Renderer: text::Renderer>(
 
 fn measure_hotkey_width<Renderer: text::Renderer>(
     renderer: &Renderer,
-    style: &ContextMenuStyle,
+    metrics: &PanelMetrics,
     hotkey: &str,
 ) -> f32 {
-    let size = Pixels(style.hotkey_label_size);
+    let size = Pixels(metrics.hotkey_label_size);
     let line_height = text::LineHeight::default();
     let text = text::Text {
         content: hotkey,
-        bounds: Size::new(f32::INFINITY, style.row_height),
+        bounds: Size::new(f32::INFINITY, metrics.row_height),
         size,
         line_height,
         font: renderer.default_font(),
@@ -118,7 +144,7 @@ fn measure_hotkey_width<Renderer: text::Renderer>(
 
 fn max_hotkey_width_in_panel<'a, Renderer: text::Renderer>(
     renderer: &Renderer,
-    style: &ContextMenuStyle,
+    metrics: &PanelMetrics,
     nodes: &[MenuNode<'a>],
 ) -> f32 {
     let mut m = 0.0_f32;
@@ -127,7 +153,7 @@ fn max_hotkey_width_in_panel<'a, Renderer: text::Renderer>(
             hotkey: Some(h), ..
         } = node
         {
-            m = m.max(measure_hotkey_width(renderer, style, h.as_ref()));
+            m = m.max(measure_hotkey_width(renderer, metrics, h.as_ref()));
         }
     }
     m
@@ -135,30 +161,30 @@ fn max_hotkey_width_in_panel<'a, Renderer: text::Renderer>(
 
 fn panel_content_width<'a, Renderer: text::Renderer>(
     renderer: &Renderer,
-    style: &ContextMenuStyle,
+    metrics: &PanelMetrics,
     nodes: &[MenuNode<'a>],
     icons_enabled: bool,
 ) -> f32 {
-    let icon_extra = icon_column_width(style, icons_enabled);
-    let max_hk = max_hotkey_width_in_panel(renderer, style, nodes);
+    let icon_extra = icon_column_width(metrics, icons_enabled);
+    let max_hk = max_hotkey_width_in_panel(renderer, metrics, nodes);
     let hk_strip = if max_hk > 0.0 {
-        style.label_hotkey_gap + max_hk
+        metrics.label_hotkey_gap + max_hk
     } else {
         0.0
     };
-    let mut w = style.min_width;
-    let h_margin = style.panel_padding + style.row_label_inset;
+    let mut w = metrics.min_width;
+    let h_margin = metrics.panel_padding + metrics.row_label_inset;
     for node in nodes {
         let label = match node {
             MenuNode::Action { title, .. } => title.as_ref(),
             MenuNode::Submenu { title, .. } => title.as_ref(),
             MenuNode::Separator => continue,
         };
-        let lw = measure_label_width(renderer, style, label);
+        let lw = measure_label_width(renderer, metrics, label);
         let row_need = match node {
             MenuNode::Action { .. } => lw + h_margin * 2.0 + icon_extra + hk_strip,
             MenuNode::Submenu { .. } => {
-                lw + h_margin * 2.0 + icon_extra + style.submenu_chevron_slot_width
+                lw + h_margin * 2.0 + icon_extra + metrics.submenu_chevron_slot_width
             }
             MenuNode::Separator => continue,
         };
@@ -169,19 +195,19 @@ fn panel_content_width<'a, Renderer: text::Renderer>(
 
 pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
     renderer: &Renderer,
-    style: &ContextMenuStyle,
+    metrics: &PanelMetrics,
     nodes: &[MenuNode<'a>],
     anchor: Point,
     viewport: Size,
     icons_enabled: bool,
     submenu_horizontal_overlap: f32,
 ) -> (layout::Node, f32, f32) {
-    let width = panel_content_width(renderer, style, nodes, icons_enabled);
-    let geoms = row_geometries(nodes, style);
+    let width = panel_content_width(renderer, metrics, nodes, icons_enabled);
+    let geoms = row_geometries(nodes, metrics);
     let content_h = panel_height(&geoms);
-    let border = style.border_width * 2.0;
+    let border = metrics.border_width * 2.0;
     let panel_w = width + border;
-    let panel_h = content_h + border + style.panel_padding * 2.0;
+    let panel_h = content_h + border + metrics.panel_padding * 2.0;
 
     let space_right = viewport.width - anchor.x;
     let space_left = anchor.x;
@@ -217,18 +243,18 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
                     - if matches!(nodes[g.node_idx], MenuNode::Separator) {
                         0.0
                     } else {
-                        style.row_spacing
+                        metrics.row_spacing
                     },
             ))
-            .move_to(Point::new(0.0, style.panel_padding + g.y_offset))
+            .move_to(Point::new(0.0, metrics.panel_padding + g.y_offset))
         })
         .collect();
 
     let inner = layout::Node::with_children(
-        Size::new(width, content_h + style.panel_padding * 2.0),
+        Size::new(width, content_h + metrics.panel_padding * 2.0),
         row_nodes,
     )
-    .move_to(Point::new(style.border_width, style.border_width));
+    .move_to(Point::new(metrics.border_width, metrics.border_width));
 
     let panel = layout::Node::with_children(Size::new(panel_w, panel_h), vec![inner])
         .move_to(Point::new(x, y));
@@ -236,8 +262,15 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
     (panel, panel_w, panel_h)
 }
 
-fn draw_row_icon<Renderer>(renderer: &mut Renderer, style: &ContextMenuStyle, icon: &MenuIcon, row_bounds: Rectangle, slot_left_x: f32, clip_bounds: Rectangle, color: Color)
-where
+fn draw_row_icon<Renderer>(
+    renderer: &mut Renderer,
+    metrics: &PanelMetrics,
+    icon: &MenuIcon,
+    row_bounds: Rectangle,
+    slot_left_x: f32,
+    clip_bounds: Rectangle,
+    color: Color,
+) where
     Renderer: text::Renderer<Font = Font> + svg::Renderer,
 {
     match icon {
@@ -245,7 +278,7 @@ where
             let natural = renderer.measure_svg(handle);
             let nw = natural.width.max(1) as f32;
             let nh = natural.height.max(1) as f32;
-            let slot = style.icon_slot_width;
+            let slot = metrics.icon_slot_width;
             let max_w = slot;
             let max_h = row_bounds.height * 0.92;
             let scale = (max_w / nw).min(max_h / nh);
@@ -272,8 +305,8 @@ where
             renderer.fill_text(
                 text::Text {
                     content: glyph.as_ref().to_string(),
-                    bounds: Size::new(style.icon_slot_width, row_bounds.height),
-                    size: Pixels(style.icon_glyph_size),
+                    bounds: Size::new(metrics.icon_slot_width, row_bounds.height),
+                    size: Pixels(metrics.icon_glyph_size),
                     line_height: text::LineHeight::default(),
                     font,
                     align_x: text::Alignment::Center,
@@ -282,7 +315,7 @@ where
                     wrapping: text::Wrapping::None,
                 },
                 Point::new(
-                    slot_left_x + style.icon_slot_width * 0.5,
+                    slot_left_x + metrics.icon_slot_width * 0.5,
                     row_bounds.center_y(),
                 ),
                 color,
@@ -294,6 +327,7 @@ where
 
 pub(crate) fn draw_panel<'a, Renderer>(
     renderer: &mut Renderer,
+    metrics: &PanelMetrics,
     style: &ContextMenuStyle,
     nodes: &[MenuNode<'a>],
     layout: Layout<'_>,
@@ -311,14 +345,14 @@ pub(crate) fn draw_panel<'a, Renderer>(
     renderer.fill_quad(
         renderer::Quad {
             bounds,
-            border: style.panel_border(),
+            border: style.panel_border(metrics.border_width, metrics.border_radius),
             shadow: style.panel_shadow,
             ..renderer::Quad::default()
         },
         style.panel_background,
     );
 
-    let geoms = row_geometries(nodes, style);
+    let geoms = row_geometries(nodes, metrics);
     let row_layouts: Vec<_> = layout.children().collect();
     let inner = row_layouts.first();
     let row_lays: Vec<_> = inner.map(|l| l.children().collect()).unwrap_or_default();
@@ -335,13 +369,13 @@ pub(crate) fn draw_panel<'a, Renderer>(
         })
     });
 
-    let text_size = Pixels(style.label_size);
+    let text_size = Pixels(metrics.label_size);
     let line_height = text::LineHeight::default();
     let font = renderer.default_font();
-    let icon_col = icon_column_width(style, icons_enabled);
-    let max_hk = max_hotkey_width_in_panel(renderer, style, nodes);
+    let icon_col = icon_column_width(metrics, icons_enabled);
+    let max_hk = max_hotkey_width_in_panel(renderer, metrics, nodes);
     let row_content_left =
-        |row_bounds: Rectangle| row_bounds.x + style.panel_padding + style.row_label_inset;
+        |row_bounds: Rectangle| row_bounds.x + metrics.panel_padding + metrics.row_label_inset;
     let label_x_for_row = |row_bounds: Rectangle| row_content_left(row_bounds) + icon_col;
 
     for g in &geoms {
@@ -363,7 +397,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
         let pressed = false;
 
         if show_row_highlight {
-            let pad = style.panel_padding;
+            let pad = metrics.panel_padding;
             let highlight_bounds = Rectangle {
                 x: row_bounds.x + pad,
                 y: row_bounds.y,
@@ -373,7 +407,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: highlight_bounds,
-                    border: style.row_highlight_border(),
+                    border: style.row_highlight_border(metrics.border_radius),
                     ..renderer::Quad::default()
                 },
                 if pressed {
@@ -387,14 +421,14 @@ pub(crate) fn draw_panel<'a, Renderer>(
         match node {
             MenuNode::Separator => {
                 let y = row_bounds.center_y();
-                let h_margin = style.panel_padding + style.row_label_inset;
+                let h_margin = metrics.panel_padding + metrics.row_label_inset;
                 renderer.fill_quad(
                     renderer::Quad {
                         bounds: Rectangle {
                             x: row_bounds.x + h_margin,
-                            y: y - style.separator_height * 0.5,
+                            y: y - metrics.separator_height * 0.5,
                             width: (row_bounds.width - h_margin * 2.0).max(0.0),
-                            height: style.separator_height,
+                            height: metrics.separator_height,
                         },
                         ..renderer::Quad::default()
                     },
@@ -417,7 +451,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                     if let Some(ic) = icon {
                         draw_row_icon(
                             renderer,
-                            style,
+                            metrics,
                             ic,
                             row_bounds,
                             row_content_left(row_bounds),
@@ -427,10 +461,11 @@ pub(crate) fn draw_panel<'a, Renderer>(
                     }
                 }
                 let label_x = label_x_for_row(row_bounds);
-                let content_right =
-                    row_bounds.x + row_bounds.width - style.panel_padding - style.row_label_inset;
+                let content_right = row_bounds.x + row_bounds.width
+                    - metrics.panel_padding
+                    - metrics.row_label_inset;
                 let label_bounds_w = if max_hk > 0.0 {
-                    (content_right - max_hk - style.label_hotkey_gap - label_x).max(0.0)
+                    (content_right - max_hk - metrics.label_hotkey_gap - label_x).max(0.0)
                 } else {
                     f32::INFINITY
                 };
@@ -457,7 +492,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                         } else {
                             style.disabled_color
                         };
-                        let hk_size = Pixels(style.hotkey_label_size);
+                        let hk_size = Pixels(metrics.hotkey_label_size);
                         let hk_line_height = text::LineHeight::default();
                         renderer.fill_text(
                             text::Text {
@@ -487,7 +522,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                     if let Some(ic) = icon {
                         draw_row_icon(
                             renderer,
-                            style,
+                            metrics,
                             ic,
                             row_bounds,
                             row_content_left(row_bounds),
@@ -512,19 +547,19 @@ pub(crate) fn draw_panel<'a, Renderer>(
                     style.label_color,
                     clip_bounds,
                 );
-                let handle = style.submenu_chevron_icon.handle();
+                let handle = metrics.submenu_chevron_icon.handle();
                 let natural = renderer.measure_svg(&handle);
                 let nw = natural.width.max(1) as f32;
                 let nh = natural.height.max(1) as f32;
-                let slot = style.submenu_chevron_slot_width;
+                let slot = metrics.submenu_chevron_slot_width;
                 let max_w = slot;
                 let max_h = row_bounds.height * 0.92;
                 let scale = (max_w / nw).min(max_h / nh);
                 let w = nw * scale;
                 let h = nh * scale;
                 let column_left = row_bounds.x + row_bounds.width
-                    - style.panel_padding
-                    - style.row_label_inset
+                    - metrics.panel_padding
+                    - metrics.row_label_inset
                     - slot;
                 let svg_bounds = Rectangle {
                     x: column_left + (slot - w) * 0.5,

@@ -18,18 +18,15 @@
 //! handling the message from [`.on_open`](ContextMenu::on_open))—so the request is a one-shot pulse,
 //! like other Iced UI flags.
 //!
-//! # Theming
+//! # Theming and layout
 //!
-//! Use [`ContextMenuStyle`] for full control (colors, typography, separators, submenu chevron,
-//! flyout overlap, panel shadow, scrim). For colors aligned with the iced `Theme` palette
-//! (`extended_palette`), use [`ContextMenuStyle::from_theme`], or [`ContextMenuStyle::dark`]
-//! / [`ContextMenuStyle::light`]
-//! for the Dark/Light palettes. Fixed demo palettes [`ContextMenuStyle::example_dark`],
-//! [`ContextMenuStyle::example_light`], and [`ContextMenuStyle::example_warm`] are also available.
+//! Use [`ContextMenuStyle`] for colors, shadow, and dismiss scrim. For palette-aligned colors,
+//! use [`ContextMenuStyle::from_theme`], [`ContextMenuStyle::dark`], or [`ContextMenuStyle::light`].
 //!
-//! [`ContextMenu`] also exposes builder shortcuts for common layout fields (padding, row size,
-//! borders, hotkey column, icon column, shadow, etc.). Anything without a dedicated method can be
-//! set on a [`ContextMenuStyle`] value before calling [`.style(...)`](ContextMenu::style).
+//! Spacing, sizing, typography, borders, icon columns, submenu chevron, and flyout overlap are
+//! configured on [`ContextMenu`] via builder methods such as [`.panel_padding`](ContextMenu::panel_padding)
+//! and [`.row_height`](ContextMenu::row_height). [`.style(...)`](ContextMenu::style) replaces the style
+//! only; layout fields on the widget are unchanged.
 //!
 //! # Menu data
 //!
