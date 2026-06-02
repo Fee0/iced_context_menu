@@ -42,7 +42,7 @@ pub(crate) struct MenuOverlay<'a, Message, Theme, Renderer> {
     pub(crate) _marker: PhantomData<(Theme, Renderer)>,
 }
 
-impl<'a, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
+impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::Renderer>
     MenuOverlay<'a, Message, Theme, Renderer>
 {
     fn write_submenu_anchor_for_next_row(
@@ -270,7 +270,7 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
     }
 }
 
-impl<Message: Clone, Theme, Renderer: text::Renderer + svg::Renderer>
+impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::Renderer>
     overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'_, Message, Theme, Renderer>
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {

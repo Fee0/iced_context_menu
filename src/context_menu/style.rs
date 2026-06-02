@@ -31,6 +31,8 @@ pub struct ContextMenuStyle {
     pub icon_slot_width: f32,
     /// Space between the icon column and the label.
     pub icon_label_gap: f32,
+    /// Font size for [`crate::MenuIcon::Glyph`] row icons (independent of [`Self::label_size`]).
+    pub icon_glyph_size: f32,
     /// Font size for optional action hotkey hints on the right.
     pub hotkey_label_size: f32,
     /// Space between the title and the hotkey column (when any action has a hotkey).
@@ -79,6 +81,7 @@ impl Default for ContextMenuStyle {
             submenu_flyout_overlap: 5.0,
             icon_slot_width: 18.0,
             icon_label_gap: 6.0,
+            icon_glyph_size: 16.0,
             hotkey_label_size: 12.0,
             label_hotkey_gap: 14.0,
             hotkey_label_color: Color::from_rgb(0.62, 0.62, 0.68),

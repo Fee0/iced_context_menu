@@ -4,7 +4,8 @@
 use iced::window::Settings;
 use iced::{Color, Element, Length, Size, Task};
 use iced_context_menu::{
-    ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, SubmenuOpenMode,
+    ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, Shaping,
+    SubmenuOpenMode,
 };
 
 fn main() -> iced::Result {
@@ -124,6 +125,10 @@ fn demo_row_icon2() -> MenuIcon {
     MenuIcon::from_svg_bytes(include_bytes!("../svg/paste-svgrepo-com.svg"))
 }
 
+fn demo_glyph_icon() -> MenuIcon {
+    MenuIcon::from_glyph("\u{2605}", None, Shaping::Advanced)
+}
+
 fn build_menu() -> MenuSpec<'static> {
     let more_children = MenuSpec::new()
         .action(4_u64, "Rename", None, None)
@@ -160,7 +165,12 @@ fn build_menu() -> MenuSpec<'static> {
             Some(demo_row_icon()),
             Some("Ctrl+C".into()),
         )
-        .action(2_u64, "Paste", None, Some("Ctrl+V".into()))
+        .action(
+            2_u64,
+            "Paste",
+            Some(demo_glyph_icon()),
+            Some("Ctrl+V".into()),
+        )
         .separator()
         .disabled(3_u64, "Unavailable", None, None)
         .submenu("More", more_children, None)

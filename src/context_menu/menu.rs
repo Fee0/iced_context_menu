@@ -13,6 +13,8 @@ use std::borrow::Cow;
 use std::fmt;
 
 use iced::advanced::svg;
+use iced::advanced::text::Shaping;
+use iced::Font;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MenuItemId(pub u64);
@@ -23,18 +25,40 @@ impl fmt::Display for MenuItemId {
     }
 }
 
-/// SVG icon shown to the left of a row label when [`crate::ContextMenu::show_item_icons`] is true.
+/// Row icon shown to the left of a label when [`crate::ContextMenu::show_item_icons`] is true.
+///
+/// Use [`MenuIcon::from_svg_bytes`] for vector assets, or [`MenuIcon::from_glyph`] for a text glyph
+/// (e.g. icon-font codepoints). Glyph icons use [`ContextMenuStyle::icon_glyph_size`] and inherit
+/// row label / disabled color at draw time.
 #[derive(Debug, Clone)]
-pub struct MenuIcon(svg::Handle);
+pub enum MenuIcon {
+    Svg(svg::Handle),
+    Glyph {
+        glyph: Cow<'static, str>,
+        font: Option<Font>,
+        shaping: Shaping,
+    },
+}
 
 impl MenuIcon {
     /// Build from raw SVG bytes; use `include_bytes!` at the call site for embedded assets.
     pub fn from_svg_bytes(bytes: impl Into<Cow<'static, [u8]>>) -> Self {
-        Self(svg::Handle::from_memory(bytes.into()))
+        Self::Svg(svg::Handle::from_memory(bytes.into()))
     }
 
-    pub(crate) fn handle(&self) -> svg::Handle {
-        self.0.clone()
+    /// Build from a text glyph. `font: None` uses the renderer default font at draw time.
+    ///
+    /// Prefer [`Shaping::Advanced`] for non-ASCII or private-use icon-font glyphs.
+    pub fn from_glyph(
+        glyph: impl Into<Cow<'static, str>>,
+        font: Option<Font>,
+        shaping: Shaping,
+    ) -> Self {
+        Self::Glyph {
+            glyph: glyph.into(),
+            font,
+            shaping,
+        }
     }
 }
 

@@ -9,7 +9,7 @@ use iced::advanced::svg;
 use iced::advanced::text::{self, Paragraph};
 use iced::alignment;
 use iced::mouse;
-use iced::{Color, Pixels, Point, Rectangle, Size};
+use iced::{Color, Font, Pixels, Point, Rectangle, Size};
 
 fn icon_column_width(style: &ContextMenuStyle, icons_enabled: bool) -> f32 {
     if icons_enabled {
@@ -236,32 +236,60 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
     (panel, panel_w, panel_h)
 }
 
-fn draw_row_icon<Renderer: svg::Renderer>(
-    renderer: &mut Renderer,
-    style: &ContextMenuStyle,
-    icon: &MenuIcon,
-    row_bounds: Rectangle,
-    slot_left_x: f32,
-    clip_bounds: Rectangle,
-    color: Color,
-) {
-    let handle = icon.handle();
-    let natural = renderer.measure_svg(&handle);
-    let nw = natural.width.max(1) as f32;
-    let nh = natural.height.max(1) as f32;
-    let slot = style.icon_slot_width;
-    let max_w = slot;
-    let max_h = row_bounds.height * 0.92;
-    let scale = (max_w / nw).min(max_h / nh);
-    let w = nw * scale;
-    let h = nh * scale;
-    let svg_bounds = Rectangle {
-        x: slot_left_x + (slot - w) * 0.5,
-        y: row_bounds.y + (row_bounds.height - h) * 0.5,
-        width: w,
-        height: h,
-    };
-    renderer.draw_svg(svg::Svg::new(handle).color(color), svg_bounds, clip_bounds);
+fn draw_row_icon<Renderer>(renderer: &mut Renderer, style: &ContextMenuStyle, icon: &MenuIcon, row_bounds: Rectangle, slot_left_x: f32, clip_bounds: Rectangle, color: Color)
+where
+    Renderer: text::Renderer<Font = Font> + svg::Renderer,
+{
+    match icon {
+        MenuIcon::Svg(handle) => {
+            let natural = renderer.measure_svg(handle);
+            let nw = natural.width.max(1) as f32;
+            let nh = natural.height.max(1) as f32;
+            let slot = style.icon_slot_width;
+            let max_w = slot;
+            let max_h = row_bounds.height * 0.92;
+            let scale = (max_w / nw).min(max_h / nh);
+            let w = nw * scale;
+            let h = nh * scale;
+            let svg_bounds = Rectangle {
+                x: slot_left_x + (slot - w) * 0.5,
+                y: row_bounds.y + (row_bounds.height - h) * 0.5,
+                width: w,
+                height: h,
+            };
+            renderer.draw_svg(
+                svg::Svg::new(handle.clone()).color(color),
+                svg_bounds,
+                clip_bounds,
+            );
+        }
+        MenuIcon::Glyph {
+            glyph,
+            font,
+            shaping,
+        } => {
+            let font = font.unwrap_or_else(|| renderer.default_font());
+            renderer.fill_text(
+                text::Text {
+                    content: glyph.as_ref().to_string(),
+                    bounds: Size::new(style.icon_slot_width, row_bounds.height),
+                    size: Pixels(style.icon_glyph_size),
+                    line_height: text::LineHeight::default(),
+                    font,
+                    align_x: text::Alignment::Center,
+                    align_y: alignment::Vertical::Center,
+                    shaping: *shaping,
+                    wrapping: text::Wrapping::None,
+                },
+                Point::new(
+                    slot_left_x + style.icon_slot_width * 0.5,
+                    row_bounds.center_y(),
+                ),
+                color,
+                clip_bounds,
+            );
+        }
+    }
 }
 
 pub(crate) fn draw_panel<'a, Renderer>(
@@ -277,7 +305,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
     depth: usize,
     icons_enabled: bool,
 ) where
-    Renderer: text::Renderer + svg::Renderer,
+    Renderer: text::Renderer<Font = Font> + svg::Renderer,
 {
     let bounds = layout.bounds();
     renderer.fill_quad(

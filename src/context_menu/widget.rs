@@ -193,7 +193,7 @@ impl<'a, Message, Theme, Renderer> From<ContextMenu<'a, Message, Theme, Renderer
 where
     Message: Clone + 'a,
     Theme: 'a,
-    Renderer: 'a + text::Renderer + svg::Renderer,
+    Renderer: 'a + text::Renderer<Font = iced::Font> + svg::Renderer,
 {
     fn from(menu: ContextMenu<'a, Message, Theme, Renderer>) -> Self {
         Element::new(menu)
@@ -203,7 +203,7 @@ where
 impl<'a, Message: Clone, Theme, Renderer> Widget<Message, Theme, Renderer>
     for ContextMenu<'a, Message, Theme, Renderer>
 where
-    Renderer: text::Renderer + svg::Renderer,
+    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
 {
     fn size(&self) -> Size<Length> {
         self.content.as_widget().size()

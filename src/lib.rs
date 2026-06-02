@@ -50,3 +50,4 @@ pub use context_menu::{
     ContextMenu, ContextMenuOpen, ContextMenuState, ContextMenuStyle, MenuIcon, MenuItemId,
     MenuNode, MenuSpec, SubmenuOpenMode,
 };
+pub use iced::advanced::text::Shaping;
