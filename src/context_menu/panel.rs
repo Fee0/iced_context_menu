@@ -395,6 +395,24 @@ pub(crate) fn draw_panel<'a, Renderer>(
             && (hovered || open_chain || (pointer_row.is_none() && is_focused));
 
         let pressed = false;
+        let row_label_color = |enabled: bool| {
+            if !enabled {
+                style.disabled_color
+            } else if show_row_highlight {
+                style.row_hover_label_color
+            } else {
+                style.label_color
+            }
+        };
+        let row_hotkey_color = |enabled: bool| {
+            if !enabled {
+                style.disabled_color
+            } else if show_row_highlight {
+                style.row_hover_hotkey_label_color
+            } else {
+                style.hotkey_label_color
+            }
+        };
 
         if show_row_highlight {
             let pad = metrics.panel_padding;
@@ -442,11 +460,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                 hotkey,
                 ..
             } => {
-                let color = if *enabled {
-                    style.label_color
-                } else {
-                    style.disabled_color
-                };
+                let color = row_label_color(*enabled);
                 if icons_enabled {
                     if let Some(ic) = icon {
                         draw_row_icon(
@@ -487,11 +501,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                 );
                 if max_hk > 0.0 {
                     if let Some(hk) = hotkey.as_ref() {
-                        let hk_color = if *enabled {
-                            style.hotkey_label_color
-                        } else {
-                            style.disabled_color
-                        };
+                        let hk_color = row_hotkey_color(*enabled);
                         let hk_size = Pixels(metrics.hotkey_label_size);
                         let hk_line_height = text::LineHeight::default();
                         renderer.fill_text(
@@ -518,6 +528,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                 // center as each other and the hover strip (default Relative line height differs per size).
                 let row_line_height = text::LineHeight::Absolute(Pixels(row_bounds.height));
                 let label_x = label_x_for_row(row_bounds);
+                let color = row_label_color(true);
                 if icons_enabled {
                     if let Some(ic) = icon {
                         draw_row_icon(
@@ -527,7 +538,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                             row_bounds,
                             row_content_left(row_bounds),
                             clip_bounds,
-                            style.label_color,
+                            color,
                         );
                     }
                 }
@@ -544,7 +555,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                         wrapping: text::Wrapping::None,
                     },
                     Point::new(label_x, row_bounds.center_y()),
-                    style.label_color,
+                    color,
                     clip_bounds,
                 );
                 let handle = metrics.submenu_chevron_icon.handle();
@@ -568,7 +579,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                     height: h,
                 };
                 renderer.draw_svg(
-                    svg::Svg::new(handle).color(style.label_color),
+                    svg::Svg::new(handle).color(color),
                     svg_bounds,
                     clip_bounds,
                 );

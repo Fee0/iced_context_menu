@@ -20,6 +20,10 @@ pub struct ContextMenuStyle {
     pub separator_color: Color,
     /// Action / submenu row background while hovered.
     pub row_hover_background: Color,
+    /// Label and icon color on rows with a hover / focus / open highlight.
+    pub row_hover_label_color: Color,
+    /// Hotkey hint color on highlighted enabled rows (typically muted vs [`Self::row_hover_label_color`]).
+    pub row_hover_hotkey_label_color: Color,
     /// Action / submenu row background while pressed.
     pub row_pressed_background: Color,
     /// Drop shadow under menu panels (root and flyouts).
@@ -38,6 +42,8 @@ impl Default for ContextMenuStyle {
             hotkey_label_color: Color::from_rgb(0.62, 0.62, 0.68),
             separator_color: Color::from_rgb(0.35, 0.35, 0.4),
             row_hover_background: Color::from_rgb(0.32, 0.34, 0.40),
+            row_hover_label_color: Color::from_rgb(0.98, 0.98, 1.0),
+            row_hover_hotkey_label_color: Color::from_rgb(0.75, 0.76, 0.82),
             row_pressed_background: Color::from_rgb(0.24, 0.26, 0.32),
             panel_shadow: Shadow {
                 color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
@@ -67,7 +73,11 @@ impl ContextMenuStyle {
         // light themes it can disappear over `surface`. Blend toward the panel instead.
         style.disabled_color = palette::mix(surface.text, surface.color, 0.56);
         style.separator_color = e.background.strong.color;
-        style.row_hover_background = e.background.neutral.color;
+        let neutral = e.background.neutral;
+        style.row_hover_background = neutral.color;
+        style.row_hover_label_color = neutral.text;
+        style.row_hover_hotkey_label_color =
+            palette::mix(neutral.text, neutral.color, 0.45);
         style.row_pressed_background = e.background.stronger.color;
 
         style.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, if e.is_dark { 0.18 } else { 0.12 });
