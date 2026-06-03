@@ -20,13 +20,13 @@
 //!
 //! # Theming and layout
 //!
-//! Use [`ContextMenuStyle`] for colors, shadow, and dismiss scrim. For palette-aligned colors,
-//! use [`ContextMenuStyle::from_theme`], [`ContextMenuStyle::dark`], or [`ContextMenuStyle::light`].
+//! Menu colors resolve from the active theme at draw time. Pass a styling function with
+//! [`.style(...)`](ContextMenu::style), e.g. [`ContextMenuStyle::from_theme`] or [`themed`].
+//! For fixed presets, use closures such as `.style(|_| ContextMenuStyle::light())`.
 //!
 //! Spacing, sizing, typography, borders, icon columns, submenu chevron, and flyout overlap are
 //! configured on [`ContextMenu`] via builder methods such as [`.panel_padding`](ContextMenu::panel_padding)
-//! and [`.row_height`](ContextMenu::row_height). [`.style(...)`](ContextMenu::style) replaces the style
-//! only; layout fields on the widget are unchanged.
+//! and [`.row_height`](ContextMenu::row_height).
 //!
 //! # Menu data
 //!
@@ -44,7 +44,7 @@ mod context_menu;
 
 pub use context_menu::submenu_chevron::SubmenuChevronIcon;
 pub use context_menu::{
-    ContextMenu, ContextMenuOpen, ContextMenuState, ContextMenuStyle, MenuIcon, MenuItemId,
-    MenuNode, MenuSpec, SubmenuOpenMode,
+    Catalog, ContextMenu, ContextMenuOpen, ContextMenuState, ContextMenuStyle, MenuIcon, MenuItemId,
+    MenuNode, MenuSpec, StyleFn, SubmenuOpenMode, themed,
 };
 pub use iced::advanced::text::Shaping;

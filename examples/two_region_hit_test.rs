@@ -99,7 +99,7 @@ fn view(state: &State) -> Element<'_, Message> {
         text(&state.status).size(14),
         ContextMenu::new(Element::new(SplitHitPanel))
             .items(menu_for_half(state.menu_half))
-            .style(ContextMenuStyle::light())
+            .style(|_| ContextMenuStyle::light())
             .opens_with(ContextMenuOpen::Programmatic {
                 open: state.open_pulse,
                 anchor: Some(state.menu_anchor),

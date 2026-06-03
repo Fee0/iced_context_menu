@@ -27,7 +27,7 @@ fn view() -> iced::Element<'_, Message> {
                 .separator()
                 .disabled(2_u64, "Unavailable", None, None),
         )
-        .style(ContextMenuStyle::light())
+        .style(ContextMenuStyle::from_theme)
         .on_select(|id| Message::MenuItem(id))
         .into()
 }

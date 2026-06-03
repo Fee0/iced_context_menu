@@ -109,3 +109,37 @@ impl ContextMenuStyle {
         }
     }
 }
+
+/// The theme catalog of a [`ContextMenu`](crate::ContextMenu).
+///
+/// All themes that can be used with [`ContextMenu`] must implement this trait.
+pub trait Catalog {
+    /// The item class of the [`Catalog`].
+    type Class<'a>;
+
+    /// The default class produced by the [`Catalog`].
+    fn default<'a>() -> Self::Class<'a>;
+
+    /// The [`ContextMenuStyle`] of a class.
+    fn style(&self, class: &Self::Class<'_>) -> ContextMenuStyle;
+}
+
+/// A styling function for a [`ContextMenu`](crate::ContextMenu).
+pub type StyleFn<'a, Theme> = Box<dyn Fn(&Theme) -> ContextMenuStyle + 'a>;
+
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(ContextMenuStyle::from_theme)
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> ContextMenuStyle {
+        class(self)
+    }
+}
+
+/// Palette-aligned menu colors; use as `.style(ContextMenuStyle::themed)` on [`iced::Theme`].
+pub fn themed(theme: &Theme) -> ContextMenuStyle {
+    ContextMenuStyle::from_theme(theme)
+}

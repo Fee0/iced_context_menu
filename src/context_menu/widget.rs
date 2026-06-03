@@ -1,9 +1,7 @@
-use std::marker::PhantomData;
-
 use super::menu::{MenuItemId, MenuNode, MenuSpec};
 use super::open::ContextMenuOpen;
 use super::panel::PanelMetrics;
-use super::style::ContextMenuStyle;
+use super::style::{Catalog, ContextMenuStyle, StyleFn};
 
 use super::menu_overlay::MenuOverlay;
 use super::panel::Layout;
@@ -28,20 +26,24 @@ use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector
 ///
 /// ## Theming
 ///
-/// Pass a full [`ContextMenuStyle`] with [`Self::style`] for colors and effects. Spacing, sizing,
-/// and typography measurements use the builder methods (`panel_padding`, `row_height`, etc.).
-/// For style fields without a dedicated method, mutate a [`ContextMenuStyle`] before calling
-/// [`.style`](Self::style). To match the app theme, use [`ContextMenuStyle::from_theme`],
-/// [`ContextMenuStyle::dark`], or [`ContextMenuStyle::light`].
+/// Menu colors resolve from the active theme at draw time via [`Catalog`]. Pass a styling function
+/// with [`.style`](Self::style), e.g. [`ContextMenuStyle::from_theme`] or [`themed`](crate::themed).
+/// Spacing, sizing, and typography measurements use the builder methods (`panel_padding`, `row_height`,
+/// etc.). For fixed presets, use closures such as `.style(|_| ContextMenuStyle::light())`.
 ///
 /// ## Opening the menu
 ///
 /// By default the menu opens on right-click over the widget. Use [`Self::opens_with`] with
 /// [`ContextMenuOpen::Programmatic`] for parent-controlled open (see that variant’s docs).
-pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
+pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
+where
+    Theme: Catalog,
+{
     content: Element<'a, Message, Theme, Renderer>,
     pub(crate) items: MenuSpec<'a>,
-    style: ContextMenuStyle,
+    class: Theme::Class<'a>,
+    hotkey_label_color_override: Option<Color>,
+    panel_shadow_override: Option<Shadow>,
     pub(crate) border_width: f32,
     pub(crate) border_radius: f32,
     pub(crate) panel_padding: f32,
@@ -69,13 +71,18 @@ pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Render
     on_select: Option<Box<dyn Fn(MenuItemId) -> Message + 'a>>,
 }
 
-impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
-    /// Builds a menu with [`ContextMenuStyle::default`] and hover submenus.
+impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer>
+where
+    Theme: Catalog,
+{
+    /// Builds a menu with theme-derived default styling and hover submenus.
     pub fn new(content: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
         Self {
             content: content.into(),
             items: MenuSpec::default(),
-            style: ContextMenuStyle::default(),
+            class: Theme::default(),
+            hotkey_label_color_override: None,
+            panel_shadow_override: None,
             border_width: 1.0,
             border_radius: 6.0,
             panel_padding: 6.0,
@@ -127,18 +134,18 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
         }
     }
 
-    pub(crate) fn menu_style(&self) -> &ContextMenuStyle {
-        &self.style
-    }
-
     pub fn items(mut self, spec: MenuSpec<'a>) -> Self {
         self.items = spec;
         self
     }
 
-    /// Replaces colors and effects only; layout fields on this widget are unchanged.
-    pub fn style(mut self, style: ContextMenuStyle) -> Self {
-        self.style = style;
+    /// Sets the styling function for menu colors and effects; layout fields are unchanged.
+    #[must_use]
+    pub fn style(mut self, style: impl Fn(&Theme) -> ContextMenuStyle + 'a) -> Self
+    where
+        Theme::Class<'a>: From<StyleFn<'a, Theme>>,
+    {
+        self.class = (Box::new(style) as StyleFn<'a, Theme>).into();
         self
     }
 
@@ -208,7 +215,7 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
     }
 
     pub fn hotkey_label_color(mut self, color: Color) -> Self {
-        self.style.hotkey_label_color = color;
+        self.hotkey_label_color_override = Some(color);
         self
     }
 
@@ -238,7 +245,7 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
     }
 
     pub fn panel_shadow(mut self, shadow: Shadow) -> Self {
-        self.style.panel_shadow = shadow;
+        self.panel_shadow_override = Some(shadow);
         self
     }
 
@@ -278,11 +285,27 @@ impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer> {
     }
 }
 
+pub(crate) fn resolve_menu_style<Theme: Catalog>(
+    theme: &Theme,
+    class: &Theme::Class<'_>,
+    hotkey_label_color_override: Option<Color>,
+    panel_shadow_override: Option<Shadow>,
+) -> ContextMenuStyle {
+    let mut style = theme.style(class);
+    if let Some(c) = hotkey_label_color_override {
+        style.hotkey_label_color = c;
+    }
+    if let Some(s) = panel_shadow_override {
+        style.panel_shadow = s;
+    }
+    style
+}
+
 impl<'a, Message, Theme, Renderer> From<ContextMenu<'a, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Message: Clone + 'a,
-    Theme: 'a,
+    Theme: Catalog + 'a,
     Renderer: 'a + text::Renderer<Font = iced::Font> + svg::Renderer,
 {
     fn from(menu: ContextMenu<'a, Message, Theme, Renderer>) -> Self {
@@ -293,7 +316,9 @@ where
 impl<'a, Message: Clone, Theme, Renderer> Widget<Message, Theme, Renderer>
     for ContextMenu<'a, Message, Theme, Renderer>
 where
+    Message: 'a,
     Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
+    Theme: Catalog + 'a,
 {
     fn size(&self) -> Size<Length> {
         self.content.as_widget().size()
@@ -430,24 +455,25 @@ where
             return None;
         }
 
-        Some(overlay::Element::new(Box::new(MenuOverlay::<
-            Message,
-            Theme,
-            Renderer,
-        > {
+        let menu = MenuOverlay::new(
             state,
-            menu: self,
-            submenu_mode: self.submenu_mode,
-            icons_enabled: self.icons_enabled,
-            close_on_select: self.close_on_select,
-            on_close: self.on_close.clone(),
-            on_select: self.on_select.as_deref(),
-            viewport: *viewport,
+            &self.items,
+            self.panel_metrics(),
+            &self.class,
+            self.hotkey_label_color_override,
+            self.panel_shadow_override,
+            self.submenu_mode,
+            self.icons_enabled,
+            self.close_on_select,
+            self.on_close.clone(),
+            self.on_select.as_deref(),
+            *viewport,
             translation,
-            flyout_depth: None,
-            anchor: Point::ORIGIN,
-            _marker: PhantomData,
-        })))
+            None,
+            Point::ORIGIN,
+        );
+
+        Some(overlay::Element::new(Box::new(menu)))
     }
 }
 

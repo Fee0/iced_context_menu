@@ -4,7 +4,8 @@
 use std::marker::PhantomData;
 
 use super::menu::{MenuItemId, MenuNode, MenuSpec};
-use super::widget::ContextMenu;
+use super::panel::PanelMetrics;
+use super::style::{Catalog, ContextMenuStyle};
 
 use super::panel::{Layout, draw_panel, layout_panel, row_geometries, row_index_at_panel_y};
 use super::state::{
@@ -21,18 +22,26 @@ use iced::advanced::{Clipboard, Shell};
 use iced::keyboard;
 use iced::mouse;
 use iced::touch;
-use iced::{Event, Point, Rectangle, Size, Vector};
+use iced::{Color, Event, Point, Rectangle, Shadow, Size, Vector};
 
 /// `flyout_depth: None` — root menu (scrim, `state.anchor`, keyboard nav).
 /// `flyout_depth: Some(d)` — nested panel; same `d` as the old `SubmenuOverlay::depth`.
-pub(crate) struct MenuOverlay<'a, Message, Theme, Renderer> {
+pub(crate) struct MenuOverlay<'a, 'b, Message, Theme, Renderer>
+where
+    Theme: Catalog,
+    'b: 'a,
+{
     pub(crate) state: &'a mut ContextMenuState,
-    pub(crate) menu: &'a ContextMenu<'a, Message, Theme, Renderer>,
+    pub(crate) items: &'a MenuSpec<'b>,
+    pub(crate) metrics: PanelMetrics,
+    pub(crate) class: &'a Theme::Class<'b>,
+    pub(crate) hotkey_label_color_override: Option<Color>,
+    pub(crate) panel_shadow_override: Option<Shadow>,
     pub(crate) submenu_mode: SubmenuOpenMode,
     pub(crate) icons_enabled: bool,
     pub(crate) close_on_select: bool,
     pub(crate) on_close: Option<Message>,
-    pub(crate) on_select: Option<&'a dyn Fn(MenuItemId) -> Message>,
+    pub(crate) on_select: Option<&'a (dyn Fn(MenuItemId) -> Message + 'b)>,
     pub(crate) viewport: Rectangle,
     pub(crate) translation: Vector,
     pub(crate) flyout_depth: Option<usize>,
@@ -41,13 +50,62 @@ pub(crate) struct MenuOverlay<'a, Message, Theme, Renderer> {
     pub(crate) _marker: PhantomData<(Theme, Renderer)>,
 }
 
-impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::Renderer>
-    MenuOverlay<'a, Message, Theme, Renderer>
+impl<'a, 'b, Message: Clone, Theme: Catalog, Renderer: text::Renderer<Font = iced::Font> + svg::Renderer>
+    MenuOverlay<'a, 'b, Message, Theme, Renderer>
+where
+    'b: 'a,
 {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        state: &'a mut ContextMenuState,
+        items: &'a MenuSpec<'b>,
+        metrics: PanelMetrics,
+        class: &'a Theme::Class<'b>,
+        hotkey_label_color_override: Option<Color>,
+        panel_shadow_override: Option<Shadow>,
+        submenu_mode: SubmenuOpenMode,
+        icons_enabled: bool,
+        close_on_select: bool,
+        on_close: Option<Message>,
+        on_select: Option<&'a (dyn Fn(MenuItemId) -> Message + 'b)>,
+        viewport: Rectangle,
+        translation: Vector,
+        flyout_depth: Option<usize>,
+        anchor: Point,
+    ) -> Self {
+        Self {
+            state,
+            items,
+            metrics,
+            class,
+            hotkey_label_color_override,
+            panel_shadow_override,
+            submenu_mode,
+            icons_enabled,
+            close_on_select,
+            on_close,
+            on_select,
+            viewport,
+            translation,
+            flyout_depth,
+            anchor,
+            _marker: PhantomData,
+        }
+    }
+
+    fn resolve_style(&self, theme: &Theme) -> ContextMenuStyle {
+        super::widget::resolve_menu_style(
+            theme,
+            self.class,
+            self.hotkey_label_color_override,
+            self.panel_shadow_override,
+        )
+    }
+
     fn write_submenu_anchor_for_next_row(
         state: &mut ContextMenuState,
-        nodes: &[MenuNode<'a>],
-        menu: &ContextMenu<'a, Message, Theme, Renderer>,
+        nodes: &[MenuNode<'_>],
+        metrics: &PanelMetrics,
         panel_bounds: Rectangle,
         panel_w: f32,
         open_path: &[usize],
@@ -57,8 +115,7 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + sv
             return;
         }
         let ri = open_path[next_index];
-        let metrics = menu.panel_metrics();
-        let geoms = row_geometries(nodes, &metrics);
+        let geoms = row_geometries(nodes, metrics);
         if let Some(g) = geoms.iter().find(|g| g.node_idx == ri) {
             let row_top =
                 panel_bounds.y + metrics.panel_padding + metrics.border_width + g.y_offset;
@@ -76,7 +133,7 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + sv
         submenu_mode: SubmenuOpenMode,
         close_on_select: bool,
         path: &[usize],
-        nodes: &[MenuNode<'a>],
+        nodes: &[MenuNode<'_>],
         idx: usize,
         on_close: &Option<Message>,
         on_select: Option<&dyn Fn(MenuItemId) -> Message>,
@@ -131,8 +188,8 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + sv
 
     fn update_panel_pointer(
         state: &mut ContextMenuState,
-        items: &'a MenuSpec<'a>,
-        menu: &ContextMenu<'a, Message, Theme, Renderer>,
+        items: &'a MenuSpec<'b>,
+        metrics: &PanelMetrics,
         submenu_mode: SubmenuOpenMode,
         close_on_select: bool,
         on_close: &Option<Message>,
@@ -141,13 +198,12 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + sv
         panel_layout: Layout<'_>,
         cursor: mouse::Cursor,
         shell: &mut Shell<'_, Message>,
-        nodes: &[MenuNode<'a>],
+        nodes: &[MenuNode<'_>],
         prefix_path: &[usize],
     ) {
-        let metrics = menu.panel_metrics();
         if let Some(p) = cursor.position_in(panel_layout.bounds()) {
             if let Event::Mouse(mouse::Event::CursorMoved { .. }) = event {
-                if let Some(idx) = row_index_at_panel_y(nodes, &metrics, p.y) {
+                if let Some(idx) = row_index_at_panel_y(nodes, metrics, p.y) {
                     let mut new_focus = prefix_path.to_vec();
                     new_focus.push(idx);
                     state.focus_path = new_focus.clone();
@@ -159,7 +215,7 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + sv
             if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) = event
             {
-                if let Some(idx) = row_index_at_panel_y(nodes, &metrics, p.y) {
+                if let Some(idx) = row_index_at_panel_y(nodes, metrics, p.y) {
                     let mut path = prefix_path.to_vec();
                     path.push(idx);
                     Self::activate_row(
@@ -180,7 +236,7 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + sv
 
     fn handle_keyboard_nav(
         state: &mut ContextMenuState,
-        items: &'a MenuSpec<'a>,
+        items: &'a MenuSpec<'b>,
         submenu_mode: SubmenuOpenMode,
         event: &Event,
         shell: &mut Shell<'_, Message>,
@@ -272,17 +328,23 @@ impl<'a, Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + sv
     }
 }
 
-impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::Renderer>
-    overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'_, Message, Theme, Renderer>
+impl<
+        'a,
+        'b,
+        Message: Clone,
+        Theme: Catalog,
+        Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
+    > overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'a, 'b, Message, Theme, Renderer>
+where
+    'b: 'a,
 {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
-        let metrics = self.menu.panel_metrics();
         match self.flyout_depth {
             None => {
-                let nodes = self.menu.items.nodes();
+                let nodes = self.items.nodes();
                 let (panel_node, panel_w, _panel_h) = layout_panel(
                     renderer,
-                    &metrics,
+                    &self.metrics,
                     nodes,
                     self.state.anchor,
                     bounds,
@@ -295,7 +357,13 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                     let open_path = self.state.open_path.clone();
                     let pb = panel_node.bounds();
                     Self::write_submenu_anchor_for_next_row(
-                        self.state, nodes, self.menu, pb, panel_w, &open_path, 0,
+                        self.state,
+                        nodes,
+                        &self.metrics,
+                        pb,
+                        panel_w,
+                        &open_path,
+                        0,
                     );
                 }
 
@@ -307,17 +375,17 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                     return layout::Node::new(bounds);
                 }
                 let path = &self.state.open_path[0..=depth];
-                let Some(nodes) = submenu_children(self.menu.items.nodes(), path) else {
+                let Some(nodes) = submenu_children(self.items.nodes(), path) else {
                     return layout::Node::new(bounds);
                 };
                 let (panel_node, panel_w, _panel_h) = layout_panel(
                     renderer,
-                    &metrics,
+                    &self.metrics,
                     nodes,
                     self.anchor,
                     bounds,
                     self.icons_enabled,
-                    metrics.submenu_flyout_overlap,
+                    self.metrics.submenu_flyout_overlap,
                 );
 
                 let next = depth + 1;
@@ -325,7 +393,13 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                     let open_path = self.state.open_path.clone();
                     let pb = panel_node.bounds();
                     Self::write_submenu_anchor_for_next_row(
-                        self.state, nodes, self.menu, pb, panel_w, &open_path, next,
+                        self.state,
+                        nodes,
+                        &self.metrics,
+                        pb,
+                        panel_w,
+                        &open_path,
+                        next,
                     );
                 }
 
@@ -354,7 +428,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
 
         match self.flyout_depth {
             None => {
-                let nodes = self.menu.items.nodes();
+                let nodes = self.items.nodes();
                 let mut children = layout.children();
                 let scrim_layout = children.next();
                 let panel_layout = children.next();
@@ -371,8 +445,8 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                     }
                     Self::update_panel_pointer(
                         self.state,
-                        &self.menu.items,
-                        self.menu,
+                        self.items,
+                        &self.metrics,
                         self.submenu_mode,
                         self.close_on_select,
                         &self.on_close,
@@ -387,7 +461,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                 }
                 Self::handle_keyboard_nav(
                     self.state,
-                    &self.menu.items,
+                    self.items,
                     self.submenu_mode,
                     event,
                     shell,
@@ -401,15 +475,15 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                     return;
                 }
                 let path = &self.state.open_path[0..=depth];
-                let Some(nodes) = submenu_children(self.menu.items.nodes(), path) else {
+                let Some(nodes) = submenu_children(self.items.nodes(), path) else {
                     return;
                 };
                 let prefix: Vec<_> = self.state.open_path[0..=depth].to_vec();
                 if let Some(pl) = layout.children().next() {
                     Self::update_panel_pointer(
                         self.state,
-                        &self.menu.items,
-                        self.menu,
+                        self.items,
+                        &self.metrics,
                         self.submenu_mode,
                         self.close_on_select,
                         &self.on_close,
@@ -434,9 +508,7 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
         layout: Layout<'_>,
         cursor: mouse::Cursor,
     ) {
-        let _ = theme;
-        let metrics = self.menu.panel_metrics();
-        let style = self.menu.menu_style();
+        let style = self.resolve_style(theme);
         match self.flyout_depth {
             None => {
                 let mut children = layout.children();
@@ -454,9 +526,9 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                 if let Some(pl) = panel_l {
                     draw_panel(
                         renderer,
-                        &metrics,
-                        style,
-                        self.menu.items.nodes(),
+                        &self.metrics,
+                        &style,
+                        self.items.nodes(),
                         pl,
                         cursor,
                         &self.state.focus_path,
@@ -473,14 +545,14 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                     return;
                 }
                 let path = &self.state.open_path[0..=depth];
-                let Some(nodes) = submenu_children(self.menu.items.nodes(), path) else {
+                let Some(nodes) = submenu_children(self.items.nodes(), path) else {
                     return;
                 };
                 if let Some(pl) = layout.children().next() {
                     draw_panel(
                         renderer,
-                        &metrics,
-                        style,
+                        &self.metrics,
+                        &style,
                         nodes,
                         pl,
                         cursor,
@@ -535,20 +607,23 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                     return None;
                 }
                 let anchor = self.state.submenu_anchors.get(0).copied()?;
-                Some(overlay::Element::new(Box::new(MenuOverlay {
-                    state: self.state,
-                    menu: self.menu,
-                    submenu_mode: self.submenu_mode,
-                    icons_enabled: self.icons_enabled,
-                    close_on_select: self.close_on_select,
-                    on_close: self.on_close.clone(),
-                    on_select: self.on_select,
-                    viewport: self.viewport,
-                    translation: self.translation,
-                    flyout_depth: Some(0),
+                Some(overlay::Element::new(Box::new(MenuOverlay::new(
+                    self.state,
+                    self.items,
+                    self.metrics,
+                    self.class,
+                    self.hotkey_label_color_override,
+                    self.panel_shadow_override,
+                    self.submenu_mode,
+                    self.icons_enabled,
+                    self.close_on_select,
+                    self.on_close.clone(),
+                    self.on_select,
+                    self.viewport,
+                    self.translation,
+                    Some(0),
                     anchor,
-                    _marker: PhantomData,
-                })))
+                ))))
             }
             Some(depth) => {
                 let next = depth + 1;
@@ -556,20 +631,23 @@ impl<Message: Clone, Theme, Renderer: text::Renderer<Font = iced::Font> + svg::R
                     return None;
                 }
                 let anchor = self.state.submenu_anchors.get(next).copied()?;
-                Some(overlay::Element::new(Box::new(MenuOverlay {
-                    state: self.state,
-                    menu: self.menu,
-                    submenu_mode: self.submenu_mode,
-                    icons_enabled: self.icons_enabled,
-                    close_on_select: self.close_on_select,
-                    on_close: self.on_close.clone(),
-                    on_select: self.on_select,
-                    viewport: self.viewport,
-                    translation: self.translation,
-                    flyout_depth: Some(next),
+                Some(overlay::Element::new(Box::new(MenuOverlay::new(
+                    self.state,
+                    self.items,
+                    self.metrics,
+                    self.class,
+                    self.hotkey_label_color_override,
+                    self.panel_shadow_override,
+                    self.submenu_mode,
+                    self.icons_enabled,
+                    self.close_on_select,
+                    self.on_close.clone(),
+                    self.on_select,
+                    self.viewport,
+                    self.translation,
+                    Some(next),
                     anchor,
-                    _marker: PhantomData,
-                })))
+                ))))
             }
         }
     }

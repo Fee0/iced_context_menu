@@ -30,16 +30,18 @@ enum DemoOpenMode {
     Programmatic,
 }
 
-fn merged_style(state: &State) -> ContextMenuStyle {
-    let mut s = match state.style_preset {
-        StylePreset::Dark => ContextMenuStyle::dark(),
-        StylePreset::Light => ContextMenuStyle::light(),
-    };
-    s.panel_shadow.blur_radius = state.panel_shadow_blur;
-    s.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, state.scrim_alpha);
-    let hk = s.hotkey_label_color;
-    s.hotkey_label_color = Color::from_rgba(hk.r, hk.g, hk.b, hk.a * state.hotkey_label_alpha);
-    s
+fn merged_style(state: &State) -> impl Fn(&iced::Theme) -> ContextMenuStyle + '_ {
+    move |_theme| {
+        let mut s = match state.style_preset {
+            StylePreset::Dark => ContextMenuStyle::dark(),
+            StylePreset::Light => ContextMenuStyle::light(),
+        };
+        s.panel_shadow.blur_radius = state.panel_shadow_blur;
+        s.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, state.scrim_alpha);
+        let hk = s.hotkey_label_color;
+        s.hotkey_label_color = Color::from_rgba(hk.r, hk.g, hk.b, hk.a * state.hotkey_label_alpha);
+        s
+    }
 }
 
 #[derive(Debug, Clone)]

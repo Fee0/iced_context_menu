@@ -12,5 +12,5 @@ mod widget;
 pub use menu::{MenuIcon, MenuItemId, MenuNode, MenuSpec};
 pub use open::ContextMenuOpen;
 pub use state::{ContextMenuState, SubmenuOpenMode};
-pub use style::ContextMenuStyle;
+pub use style::{Catalog, ContextMenuStyle, StyleFn, themed};
 pub use widget::ContextMenu;
