@@ -198,6 +198,7 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
     metrics: &PanelMetrics,
     nodes: &[MenuNode<'a>],
     anchor: Point,
+    parent_left_x: Option<f32>,
     viewport: Size,
     icons_enabled: bool,
     submenu_horizontal_overlap: f32,
@@ -215,7 +216,7 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
     let mut x = if place_right {
         anchor.x
     } else {
-        anchor.x - panel_w
+        parent_left_x.unwrap_or(anchor.x) - panel_w
     };
     if submenu_horizontal_overlap > 0.0 {
         if place_right {

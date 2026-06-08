@@ -46,7 +46,8 @@ where
     pub(crate) translation: Vector,
     pub(crate) flyout_depth: Option<usize>,
     /// Used when `flyout_depth` is `Some`; ignored for root (layout uses `state.anchor`).
-    pub(crate) anchor: Point,
+    /// `x`=parent left edge, `y`=row top, `width`=parent panel width; `height` unused.
+    pub(crate) anchor: Rectangle,
     pub(crate) _marker: PhantomData<(Theme, Renderer)>,
 }
 
@@ -71,7 +72,7 @@ where
         viewport: Rectangle,
         translation: Vector,
         flyout_depth: Option<usize>,
-        anchor: Point,
+        anchor: Rectangle,
     ) -> Self {
         Self {
             state,
@@ -119,12 +120,16 @@ where
         if let Some(g) = geoms.iter().find(|g| g.node_idx == ri) {
             let row_top =
                 panel_bounds.y + metrics.panel_padding + metrics.border_width + g.y_offset;
-            let x = panel_bounds.x + panel_w - metrics.border_width;
-            let p = Point::new(x, row_top);
+            let rect = Rectangle {
+                x: panel_bounds.x,
+                y: row_top,
+                width: panel_w,
+                height: 0.0,
+            };
             if state.submenu_anchors.len() <= next_index {
-                state.submenu_anchors.resize(next_index + 1, Point::ORIGIN);
+                state.submenu_anchors.resize(next_index + 1, Rectangle::default());
             }
-            state.submenu_anchors[next_index] = p;
+            state.submenu_anchors[next_index] = rect;
         }
     }
 
@@ -347,6 +352,7 @@ where
                     &self.metrics,
                     nodes,
                     self.state.anchor,
+                    None,
                     bounds,
                     self.icons_enabled,
                     0.0,
@@ -378,11 +384,16 @@ where
                 let Some(nodes) = submenu_children(self.items.nodes(), path) else {
                     return layout::Node::new(bounds);
                 };
+                let anchor_pt = Point::new(
+                    self.anchor.x + self.anchor.width - self.metrics.border_width,
+                    self.anchor.y,
+                );
                 let (panel_node, panel_w, _panel_h) = layout_panel(
                     renderer,
                     &self.metrics,
                     nodes,
-                    self.anchor,
+                    anchor_pt,
+                    Some(self.anchor.x),
                     bounds,
                     self.icons_enabled,
                     self.metrics.submenu_flyout_overlap,

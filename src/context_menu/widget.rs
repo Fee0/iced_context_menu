@@ -470,7 +470,7 @@ where
             *viewport,
             translation,
             None,
-            Point::ORIGIN,
+            Rectangle::default(),
         );
 
         Some(overlay::Element::new(Box::new(menu)))

@@ -2,7 +2,7 @@
 
 use super::menu::{MenuNode, MenuSpec};
 
-use iced::Point;
+use iced::{Point, Rectangle};
 
 /// How nested submenus open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -27,8 +27,9 @@ pub struct ContextMenuState {
     pub focus_path: Vec<usize>,
     /// Open submenu chain: `open_path[0]` is a root row index, etc.
     pub open_path: Vec<usize>,
-    /// Anchor for flyout at depth `d` (`submenu_anchors[d]` = top-left of that flyout panel).
-    pub submenu_anchors: Vec<Point>,
+    /// Anchor for flyout at depth `d`: parent panel bounds (`x`=left edge, `y`=row top,
+    /// `width`=panel width). `height` is unused (always 0.0).
+    pub submenu_anchors: Vec<Rectangle>,
 }
 
 impl Default for ContextMenuState {
