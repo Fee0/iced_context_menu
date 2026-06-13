@@ -124,7 +124,7 @@ where
                 x: panel_bounds.x,
                 y: row_top,
                 width: panel_w,
-                height: 0.0,
+                height: metrics.row_height + metrics.row_spacing,
             };
             if state.submenu_anchors.len() <= next_index {
                 state.submenu_anchors.resize(next_index + 1, Rectangle::default());
@@ -356,6 +356,7 @@ where
                     bounds,
                     self.icons_enabled,
                     0.0,
+                    0.0,
                 );
 
                 self.state.submenu_anchors.clear();
@@ -397,6 +398,7 @@ where
                     bounds,
                     self.icons_enabled,
                     self.metrics.submenu_flyout_overlap,
+                    self.anchor.height,
                 );
 
                 let next = depth + 1;

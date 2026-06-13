@@ -202,6 +202,7 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
     viewport: Size,
     icons_enabled: bool,
     submenu_horizontal_overlap: f32,
+    anchor_row_height: f32,
 ) -> (layout::Node, f32, f32) {
     let width = panel_content_width(renderer, metrics, nodes, icons_enabled);
     let geoms = row_geometries(nodes, metrics);
@@ -232,7 +233,7 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
     let y = if space_below >= panel_h || space_below >= space_above {
         anchor.y.clamp(0.0, (viewport.height - panel_h).max(0.0))
     } else {
-        (anchor.y - panel_h).clamp(0.0, (viewport.height - panel_h).max(0.0))
+        (anchor.y + anchor_row_height - panel_h).clamp(0.0, (viewport.height - panel_h).max(0.0))
     };
 
     let row_nodes: Vec<layout::Node> = geoms
