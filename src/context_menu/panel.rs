@@ -397,19 +397,19 @@ pub(crate) fn draw_panel<'a, Renderer>(
 
         let pressed = false;
         let row_label_color = |enabled: bool| {
-            if !enabled {
-                style.disabled_color
-            } else if show_row_highlight {
+            if show_row_highlight {
                 style.row_hover_label_color
+            } else if !enabled {
+                style.disabled_color
             } else {
                 style.label_color
             }
         };
         let row_hotkey_color = |enabled: bool| {
-            if !enabled {
-                style.disabled_color
-            } else if show_row_highlight {
+            if show_row_highlight {
                 style.row_hover_hotkey_label_color
+            } else if !enabled {
+                style.disabled_color
             } else {
                 style.hotkey_label_color
             }
