@@ -9,8 +9,16 @@ use iced::advanced::renderer;
 use iced::advanced::svg;
 use iced::advanced::text::{self, Paragraph};
 use iced::alignment;
+use iced::border::Radius;
 use iced::mouse;
-use iced::{Color, Font, Pixels, Point, Rectangle, Size};
+use iced::{Border, Color, Font, Pixels, Point, Rectangle, Size};
+
+/// Bundled check mark drawn inside a checked [`MenuNode::Toggle`] box.
+fn check_handle() -> svg::Handle {
+    svg::Handle::from_memory(std::borrow::Cow::Borrowed(
+        include_bytes!("../../svg/check.svg").as_slice(),
+    ))
+}
 
 /// Layout measurements copied from [`super::widget::ContextMenu`] for panel code (avoids a widget/panel module cycle).
 #[derive(Debug, Clone, Copy)]
@@ -28,11 +36,18 @@ pub(crate) struct PanelMetrics {
     pub icon_slot_width: f32,
     pub icon_label_gap: f32,
     pub icon_glyph_size: f32,
+    pub toggle_box_size: f32,
     pub hotkey_label_size: f32,
     pub label_hotkey_gap: f32,
     pub separator_height: f32,
     pub separator_margin_vertical: f32,
     pub row_height: f32,
+}
+
+/// Toggle checkboxes live in the icon slot, so a panel holding one needs that column even when
+/// the widget draws no icons.
+fn icons_column_enabled<'a>(nodes: &[MenuNode<'a>], icons_enabled: bool) -> bool {
+    icons_enabled || nodes.iter().any(|n| matches!(n, MenuNode::Toggle { .. }))
 }
 
 fn icon_column_width(metrics: &PanelMetrics, icons_enabled: bool) -> f32 {
@@ -151,6 +166,9 @@ fn max_hotkey_width_in_panel<'a, Renderer: text::Renderer>(
     for node in nodes {
         if let MenuNode::Action {
             hotkey: Some(h), ..
+        }
+        | MenuNode::Toggle {
+            hotkey: Some(h), ..
         } = node
         {
             m = m.max(measure_hotkey_width(renderer, metrics, h.as_ref()));
@@ -165,7 +183,7 @@ fn panel_content_width<'a, Renderer: text::Renderer>(
     nodes: &[MenuNode<'a>],
     icons_enabled: bool,
 ) -> f32 {
-    let icon_extra = icon_column_width(metrics, icons_enabled);
+    let icon_extra = icon_column_width(metrics, icons_column_enabled(nodes, icons_enabled));
     let max_hk = max_hotkey_width_in_panel(renderer, metrics, nodes);
     let hk_strip = if max_hk > 0.0 {
         metrics.label_hotkey_gap + max_hk
@@ -177,12 +195,15 @@ fn panel_content_width<'a, Renderer: text::Renderer>(
     for node in nodes {
         let label = match node {
             MenuNode::Action { title, .. } => title.as_ref(),
+            MenuNode::Toggle { title, .. } => title.as_ref(),
             MenuNode::Submenu { title, .. } => title.as_ref(),
             MenuNode::Separator => continue,
         };
         let lw = measure_label_width(renderer, metrics, label);
         let row_need = match node {
-            MenuNode::Action { .. } => lw + h_margin * 2.0 + icon_extra + hk_strip,
+            MenuNode::Action { .. } | MenuNode::Toggle { .. } => {
+                lw + h_margin * 2.0 + icon_extra + hk_strip
+            }
             MenuNode::Submenu { .. } => {
                 lw + h_margin * 2.0 + icon_extra + metrics.submenu_chevron_slot_width
             }
@@ -327,6 +348,60 @@ fn draw_row_icon<Renderer>(
     }
 }
 
+/// Draws a [`MenuNode::Toggle`] checkbox centered in the icon slot at `slot_left_x`.
+///
+/// The box tracks `label_color`, so it follows the row's hover / disabled state instead of
+/// fighting the row highlight with a fill of its own.
+fn draw_toggle_box<Renderer>(
+    renderer: &mut Renderer,
+    metrics: &PanelMetrics,
+    on: bool,
+    label_color: Color,
+    row_bounds: Rectangle,
+    slot_left_x: f32,
+    clip_bounds: Rectangle,
+) where
+    Renderer: text::Renderer<Font = Font> + svg::Renderer,
+{
+    let size = metrics.toggle_box_size.min(row_bounds.height);
+    let bounds = Rectangle {
+        x: slot_left_x + (metrics.icon_slot_width - size) * 0.5,
+        y: row_bounds.y + (row_bounds.height - size) * 0.5,
+        width: size,
+        height: size,
+    };
+
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds,
+            border: Border {
+                width: 1.0,
+                color: Color {
+                    a: label_color.a * 0.7,
+                    ..label_color
+                },
+                radius: Radius::from(3.0),
+            },
+            ..renderer::Quad::default()
+        },
+        Color::TRANSPARENT,
+    );
+
+    if on {
+        let inset = size * 0.18;
+        renderer.draw_svg(
+            svg::Svg::new(check_handle()).color(label_color),
+            Rectangle {
+                x: bounds.x + inset,
+                y: bounds.y + inset,
+                width: size - inset * 2.0,
+                height: size - inset * 2.0,
+            },
+            clip_bounds,
+        );
+    }
+}
+
 pub(crate) fn draw_panel<'a, Renderer>(
     renderer: &mut Renderer,
     metrics: &PanelMetrics,
@@ -374,6 +449,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
     let text_size = Pixels(metrics.label_size);
     let line_height = text::LineHeight::default();
     let font = renderer.default_font();
+    let icons_enabled = icons_column_enabled(nodes, icons_enabled);
     let icon_col = icon_column_width(metrics, icons_enabled);
     let max_hk = max_hotkey_width_in_panel(renderer, metrics, nodes);
     let row_content_left =
@@ -458,23 +534,37 @@ pub(crate) fn draw_panel<'a, Renderer>(
             MenuNode::Action {
                 title,
                 enabled,
-                icon,
+                hotkey,
+                ..
+            }
+            | MenuNode::Toggle {
+                title,
+                enabled,
                 hotkey,
                 ..
             } => {
                 let color = row_label_color(*enabled);
-                if icons_enabled {
-                    if let Some(ic) = icon {
-                        draw_row_icon(
-                            renderer,
-                            metrics,
-                            ic,
-                            row_bounds,
-                            row_content_left(row_bounds),
-                            clip_bounds,
-                            color,
-                        );
-                    }
+                // A toggle spends the icon slot on its checkbox; an action draws its icon there.
+                match node {
+                    MenuNode::Toggle { on, .. } => draw_toggle_box(
+                        renderer,
+                        metrics,
+                        *on,
+                        color,
+                        row_bounds,
+                        row_content_left(row_bounds),
+                        clip_bounds,
+                    ),
+                    MenuNode::Action { icon: Some(ic), .. } if icons_enabled => draw_row_icon(
+                        renderer,
+                        metrics,
+                        ic,
+                        row_bounds,
+                        row_content_left(row_bounds),
+                        clip_bounds,
+                        color,
+                    ),
+                    _ => {}
                 }
                 let label_x = label_x_for_row(row_bounds);
                 let content_right = row_bounds.x + row_bounds.width
@@ -580,11 +670,7 @@ pub(crate) fn draw_panel<'a, Renderer>(
                     width: w,
                     height: h,
                 };
-                renderer.draw_svg(
-                    svg::Svg::new(handle).color(color),
-                    svg_bounds,
-                    clip_bounds,
-                );
+                renderer.draw_svg(svg::Svg::new(handle).color(color), svg_bounds, clip_bounds);
             }
         }
     }

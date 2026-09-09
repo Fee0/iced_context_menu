@@ -51,8 +51,13 @@ where
     pub(crate) _marker: PhantomData<(Theme, Renderer)>,
 }
 
-impl<'a, 'b, Message: Clone, Theme: Catalog, Renderer: text::Renderer<Font = iced::Font> + svg::Renderer>
-    MenuOverlay<'a, 'b, Message, Theme, Renderer>
+impl<
+    'a,
+    'b,
+    Message: Clone,
+    Theme: Catalog,
+    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
+> MenuOverlay<'a, 'b, Message, Theme, Renderer>
 where
     'b: 'a,
 {
@@ -127,7 +132,9 @@ where
                 height: metrics.row_height + metrics.row_spacing,
             };
             if state.submenu_anchors.len() <= next_index {
-                state.submenu_anchors.resize(next_index + 1, Rectangle::default());
+                state
+                    .submenu_anchors
+                    .resize(next_index + 1, Rectangle::default());
             }
             state.submenu_anchors[next_index] = rect;
         }
@@ -159,6 +166,17 @@ where
                     if let Some(m) = on_close.clone() {
                         shell.publish(m);
                     }
+                }
+                shell.capture_event();
+                shell.request_redraw();
+            }
+            // A toggle flips state in place: the menu stays open so the new checkbox is visible
+            // and further rows can be picked, regardless of `close_on_select`.
+            MenuNode::Toggle {
+                id, enabled: true, ..
+            } => {
+                if let Some(f) = on_select {
+                    shell.publish(f(*id));
                 }
                 shell.capture_event();
                 shell.request_redraw();
@@ -334,12 +352,12 @@ where
 }
 
 impl<
-        'a,
-        'b,
-        Message: Clone,
-        Theme: Catalog,
-        Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
-    > overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'a, 'b, Message, Theme, Renderer>
+    'a,
+    'b,
+    Message: Clone,
+    Theme: Catalog,
+    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
+> overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'a, 'b, Message, Theme, Renderer>
 where
     'b: 'a,
 {

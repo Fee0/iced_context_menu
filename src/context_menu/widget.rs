@@ -57,6 +57,7 @@ where
     pub(crate) icon_slot_width: f32,
     pub(crate) icon_label_gap: f32,
     pub(crate) icon_glyph_size: f32,
+    pub(crate) toggle_box_size: f32,
     pub(crate) hotkey_label_size: f32,
     pub(crate) label_hotkey_gap: f32,
     pub(crate) separator_height: f32,
@@ -96,6 +97,7 @@ where
             icon_slot_width: 18.0,
             icon_label_gap: 6.0,
             icon_glyph_size: 16.0,
+            toggle_box_size: 14.0,
             hotkey_label_size: 12.0,
             label_hotkey_gap: 14.0,
             separator_height: 1.0,
@@ -126,6 +128,7 @@ where
             icon_slot_width: self.icon_slot_width,
             icon_label_gap: self.icon_label_gap,
             icon_glyph_size: self.icon_glyph_size,
+            toggle_box_size: self.toggle_box_size,
             hotkey_label_size: self.hotkey_label_size,
             label_hotkey_gap: self.label_hotkey_gap,
             separator_height: self.separator_height,
@@ -226,6 +229,12 @@ where
 
     pub fn icon_label_gap(mut self, gap: f32) -> Self {
         self.icon_label_gap = gap;
+        self
+    }
+
+    /// Edge length of a toggle checkbox drawn in the icon slot, clamped to the row height.
+    pub fn toggle_box_size(mut self, size: f32) -> Self {
+        self.toggle_box_size = size;
         self
     }
 

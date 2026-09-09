@@ -76,8 +76,7 @@ impl ContextMenuStyle {
         let neutral = e.background.neutral;
         style.row_hover_background = neutral.color;
         style.row_hover_label_color = neutral.text;
-        style.row_hover_hotkey_label_color =
-            palette::mix(neutral.text, neutral.color, 0.45);
+        style.row_hover_hotkey_label_color = palette::mix(neutral.text, neutral.color, 0.45);
         style.row_pressed_background = e.background.stronger.color;
 
         style.dismiss_scrim = Color::from_rgba(0.0, 0.0, 0.0, if e.is_dark { 0.18 } else { 0.12 });

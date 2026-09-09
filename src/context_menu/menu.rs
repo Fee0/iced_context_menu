@@ -72,6 +72,16 @@ pub enum MenuNode<'a> {
         /// Display-only shortcut hint (e.g. `"Ctrl+S"`). Shown right-aligned when set.
         hotkey: Option<Cow<'a, str>>,
     },
+    /// A row carrying on/off state, drawn with a checkbox in the icon slot (a toggle has no icon
+    /// of its own). Selecting it emits `id` like a [`MenuNode::Action`]; the app flips `on` and
+    /// rebuilds the spec.
+    Toggle {
+        id: MenuItemId,
+        title: Cow<'a, str>,
+        on: bool,
+        enabled: bool,
+        hotkey: Option<Cow<'a, str>>,
+    },
     Separator,
     Submenu {
         title: Cow<'a, str>,
@@ -125,6 +135,40 @@ impl<'a> MenuSpec<'a> {
             title: title.into(),
             enabled: false,
             icon,
+            hotkey,
+        });
+        self
+    }
+
+    pub fn toggle(
+        mut self,
+        id: impl Into<MenuItemId>,
+        title: impl Into<Cow<'a, str>>,
+        on: bool,
+        hotkey: Option<Cow<'a, str>>,
+    ) -> Self {
+        self.nodes.push(MenuNode::Toggle {
+            id: id.into(),
+            title: title.into(),
+            on,
+            enabled: true,
+            hotkey,
+        });
+        self
+    }
+
+    pub fn toggle_disabled(
+        mut self,
+        id: impl Into<MenuItemId>,
+        title: impl Into<Cow<'a, str>>,
+        on: bool,
+        hotkey: Option<Cow<'a, str>>,
+    ) -> Self {
+        self.nodes.push(MenuNode::Toggle {
+            id: id.into(),
+            title: title.into(),
+            on,
+            enabled: false,
             hotkey,
         });
         self
