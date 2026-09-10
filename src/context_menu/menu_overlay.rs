@@ -3,13 +3,16 @@
 
 use std::marker::PhantomData;
 
-use super::menu::{MenuItemId, MenuNode, MenuSpec};
+use super::menu::{MenuItemId, MenuNode, MenuSpec, SliderStop};
 use super::panel::PanelMetrics;
 use super::style::{Catalog, ContextMenuStyle};
 
-use super::panel::{Layout, draw_panel, layout_panel, row_geometries, row_index_at_panel_y};
+use super::panel::{
+    Layout, draw_panel, icon_column, layout_panel, row_geometries, row_index_at_panel_y,
+    slider_track,
+};
 use super::state::{
-    ContextMenuState, SubmenuOpenMode, current_nodes, first_focusable, next_focusable,
+    ContextMenuState, SliderDrag, SubmenuOpenMode, current_nodes, first_focusable, next_focusable,
     node_at_path, submenu_children, sync_open_path_for_focus,
 };
 
@@ -209,11 +212,134 @@ where
         shell.request_redraw();
     }
 
+    /// Path of the slider row a drag is holding, empty when no drag is live.
+    fn drag_path(state: &ContextMenuState) -> &[usize] {
+        state
+            .slider_drag
+            .as_ref()
+            .map_or(&[], |drag| drag.path.as_slice())
+    }
+
+    /// Bounds of row `index` of the panel laid out at `panel_layout`.
+    fn row_bounds(panel_layout: Layout<'_>, index: usize) -> Option<Rectangle> {
+        panel_layout
+            .children()
+            .next()?
+            .children()
+            .nth(index)
+            .map(|row| row.bounds())
+    }
+
+    fn publish_stop(
+        stops: &[SliderStop<'_>],
+        stop: usize,
+        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        shell: &mut Shell<'_, Message>,
+    ) {
+        if let (Some(f), Some(stop)) = (on_select, stops.get(stop)) {
+            shell.publish(f(stop.id));
+        }
+    }
+
+    /// Carries on a drag that started on a slider row of this panel: the handle follows the
+    /// pointer wherever it goes and reports each stop it crosses once, until the button comes up.
+    #[allow(clippy::too_many_arguments)]
+    fn drag_slider(
+        state: &mut ContextMenuState,
+        metrics: &PanelMetrics,
+        icons_enabled: bool,
+        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        event: &Event,
+        panel_layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        shell: &mut Shell<'_, Message>,
+        nodes: &[MenuNode<'_>],
+        prefix_path: &[usize],
+    ) {
+        let Some(drag) = state.slider_drag.clone() else {
+            return;
+        };
+        let index = drag.path[prefix_path.len()];
+        match event {
+            Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                if let (Some(MenuNode::Slider { stops, .. }), Some(row), Some(position)) = (
+                    nodes.get(index),
+                    Self::row_bounds(panel_layout, index),
+                    cursor.position(),
+                ) {
+                    let icon_col = icon_column(metrics, nodes, icons_enabled);
+                    let track = slider_track(metrics, icon_col, row);
+                    let stop = track.stop_at_x(stops.len(), position.x);
+                    if stop != drag.stop {
+                        state.slider_drag = Some(SliderDrag {
+                            path: drag.path,
+                            stop,
+                        });
+                        Self::publish_stop(stops, stop, on_select, shell);
+                        shell.request_redraw();
+                    }
+                }
+                shell.capture_event();
+            }
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+            | Event::Touch(touch::Event::FingerLifted { .. })
+            | Event::Touch(touch::Event::FingerLost { .. }) => {
+                state.slider_drag = None;
+                shell.capture_event();
+                shell.request_redraw();
+            }
+            _ => {}
+        }
+    }
+
+    /// Takes the press on a slider row: the whole row belongs to the slider, so the press never
+    /// reaches the dismiss layer under it, and one that lands in the track band grabs the handle.
+    #[allow(clippy::too_many_arguments)]
+    fn press_slider(
+        state: &mut ContextMenuState,
+        metrics: &PanelMetrics,
+        icons_enabled: bool,
+        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        panel_layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        shell: &mut Shell<'_, Message>,
+        nodes: &[MenuNode<'_>],
+        path: Vec<usize>,
+        index: usize,
+    ) {
+        shell.capture_event();
+        let Some(MenuNode::Slider {
+            stops,
+            selected,
+            enabled: true,
+            ..
+        }) = nodes.get(index)
+        else {
+            return;
+        };
+        if let (Some(row), Some(position)) =
+            (Self::row_bounds(panel_layout, index), cursor.position())
+        {
+            let icon_col = icon_column(metrics, nodes, icons_enabled);
+            let track = slider_track(metrics, icon_col, row);
+            if track.band.contains(position) {
+                let stop = track.stop_at_x(stops.len(), position.x);
+                state.slider_drag = Some(SliderDrag { path, stop });
+                if stop != *selected {
+                    Self::publish_stop(stops, stop, on_select, shell);
+                }
+                shell.request_redraw();
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn update_panel_pointer(
         state: &mut ContextMenuState,
         items: &'a MenuSpec<'b>,
         metrics: &PanelMetrics,
         submenu_mode: SubmenuOpenMode,
+        icons_enabled: bool,
         close_on_select: bool,
         on_close: &Option<Message>,
         on_select: Option<&dyn Fn(MenuItemId) -> Message>,
@@ -224,6 +350,26 @@ where
         nodes: &[MenuNode<'_>],
         prefix_path: &[usize],
     ) {
+        // A live slider drag owns the pointer: the panel holding it keeps the handle following,
+        // and no panel re-focuses a row or opens a flyout until the drag ends.
+        if let Some(drag) = state.slider_drag.as_ref() {
+            if drag.path.len() == prefix_path.len() + 1 && drag.path.starts_with(prefix_path) {
+                Self::drag_slider(
+                    state,
+                    metrics,
+                    icons_enabled,
+                    on_select,
+                    event,
+                    panel_layout,
+                    cursor,
+                    shell,
+                    nodes,
+                    prefix_path,
+                );
+            }
+            return;
+        }
+
         if let Some(p) = cursor.position_in(panel_layout.bounds()) {
             if let Event::Mouse(mouse::Event::CursorMoved { .. }) = event {
                 if let Some(idx) = row_index_at_panel_y(nodes, metrics, p.y) {
@@ -241,6 +387,21 @@ where
                 if let Some(idx) = row_index_at_panel_y(nodes, metrics, p.y) {
                     let mut path = prefix_path.to_vec();
                     path.push(idx);
+                    if matches!(nodes.get(idx), Some(MenuNode::Slider { .. })) {
+                        Self::press_slider(
+                            state,
+                            metrics,
+                            icons_enabled,
+                            on_select,
+                            panel_layout,
+                            cursor,
+                            shell,
+                            nodes,
+                            path,
+                            idx,
+                        );
+                        return;
+                    }
                     Self::activate_row(
                         state,
                         submenu_mode,
@@ -255,6 +416,63 @@ where
                 }
             }
         }
+    }
+
+    /// Whether the pointer is over the track band of a slider row of this panel.
+    fn over_slider_band(
+        metrics: &PanelMetrics,
+        icons_enabled: bool,
+        panel_layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        nodes: &[MenuNode<'_>],
+    ) -> bool {
+        let Some(p) = cursor.position_in(panel_layout.bounds()) else {
+            return false;
+        };
+        let Some(index) = row_index_at_panel_y(nodes, metrics, p.y) else {
+            return false;
+        };
+        let Some(MenuNode::Slider { enabled: true, .. }) = nodes.get(index) else {
+            return false;
+        };
+        let (Some(row), Some(position)) =
+            (Self::row_bounds(panel_layout, index), cursor.position())
+        else {
+            return false;
+        };
+        let icon_col = icon_column(metrics, nodes, icons_enabled);
+        slider_track(metrics, icon_col, row).band.contains(position)
+    }
+
+    /// Arrow keys on a focused slider row move its handle one stop instead of walking the menu.
+    fn nudge_focused_slider(
+        state: &ContextMenuState,
+        items: &'a MenuSpec<'b>,
+        direction: isize,
+        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        shell: &mut Shell<'_, Message>,
+    ) -> bool {
+        let Some(MenuNode::Slider {
+            stops,
+            selected,
+            enabled: true,
+            ..
+        }) = node_at_path(items.nodes(), &state.focus_path)
+        else {
+            return false;
+        };
+        if let Some(last) = stops.len().checked_sub(1) {
+            let next = (*selected)
+                .min(last)
+                .saturating_add_signed(direction)
+                .min(last);
+            if next != *selected {
+                Self::publish_stop(stops, next, on_select, shell);
+            }
+        }
+        shell.capture_event();
+        shell.request_redraw();
+        true
     }
 
     fn handle_keyboard_nav(
@@ -301,6 +519,9 @@ where
                 }
             }
             keyboard::Key::Named(keyboard::key::Named::ArrowRight) => {
+                if Self::nudge_focused_slider(state, items, 1, on_select, shell) {
+                    return;
+                }
                 let n = node_at_path(items.nodes(), &state.focus_path);
                 if let Some(MenuNode::Submenu { .. }) = n {
                     let mut p = state.focus_path.clone();
@@ -316,6 +537,9 @@ where
                 }
             }
             keyboard::Key::Named(keyboard::key::Named::ArrowLeft) => {
+                if Self::nudge_focused_slider(state, items, -1, on_select, shell) {
+                    return;
+                }
                 if state.focus_path.len() > 1 {
                     state.focus_path.pop();
                     state
@@ -468,7 +692,10 @@ where
                     | Event::Touch(touch::Event::FingerPressed { .. }) = event
                     {
                         if let Some(p) = cursor.position() {
-                            if sl.bounds().contains(p) && !pl.bounds().contains(p) {
+                            if sl.bounds().contains(p)
+                                && !pl.bounds().contains(p)
+                                && self.state.slider_drag.is_none()
+                            {
                                 Self::handle_escape(self.state, &self.on_close, shell);
                                 return;
                             }
@@ -479,6 +706,7 @@ where
                         self.items,
                         &self.metrics,
                         self.submenu_mode,
+                        self.icons_enabled,
                         self.close_on_select,
                         &self.on_close,
                         self.on_select,
@@ -516,6 +744,7 @@ where
                         self.items,
                         &self.metrics,
                         self.submenu_mode,
+                        self.icons_enabled,
                         self.close_on_select,
                         &self.on_close,
                         self.on_select,
@@ -565,6 +794,7 @@ where
                         &self.state.focus_path,
                         &[],
                         &self.state.open_path,
+                        Self::drag_path(self.state),
                         layout.bounds(),
                         0,
                         self.icons_enabled,
@@ -590,6 +820,7 @@ where
                         &self.state.focus_path,
                         path,
                         &self.state.open_path,
+                        Self::drag_path(self.state),
                         layout.bounds(),
                         depth,
                         self.icons_enabled,
@@ -605,8 +836,20 @@ where
         cursor: mouse::Cursor,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
+        if self.state.slider_drag.is_some() {
+            return mouse::Interaction::Grabbing;
+        }
         match self.flyout_depth {
             None => {
+                if Self::over_slider_band(
+                    &self.metrics,
+                    self.icons_enabled,
+                    layout.children().nth(1).unwrap_or(layout),
+                    cursor,
+                    self.items.nodes(),
+                ) {
+                    return mouse::Interaction::Grab;
+                }
                 if cursor
                     .position()
                     .is_some_and(|p| layout.bounds().contains(p))
@@ -616,9 +859,24 @@ where
                     mouse::Interaction::None
                 }
             }
-            Some(_) => {
+            Some(depth) => {
+                if self.state.open_path.len() <= depth {
+                    return mouse::Interaction::None;
+                }
+                let path = &self.state.open_path[0..=depth];
                 if let Some(pl) = layout.children().next() {
                     if cursor.position().is_some_and(|p| pl.bounds().contains(p)) {
+                        if submenu_children(self.items.nodes(), path).is_some_and(|nodes| {
+                            Self::over_slider_band(
+                                &self.metrics,
+                                self.icons_enabled,
+                                pl,
+                                cursor,
+                                nodes,
+                            )
+                        }) {
+                            return mouse::Interaction::Grab;
+                        }
                         return mouse::Interaction::Pointer;
                     }
                 }

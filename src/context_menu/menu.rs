@@ -62,6 +62,23 @@ impl MenuIcon {
     }
 }
 
+/// One stop of a [`MenuNode::Slider`]: the id it emits when the slider comes to rest on it, and
+/// the value it is labelled with.
+#[derive(Debug, Clone)]
+pub struct SliderStop<'a> {
+    pub id: MenuItemId,
+    pub label: Cow<'a, str>,
+}
+
+impl<'a> SliderStop<'a> {
+    pub fn new(id: impl Into<MenuItemId>, label: impl Into<Cow<'a, str>>) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum MenuNode<'a> {
     Action {
@@ -81,6 +98,29 @@ pub enum MenuNode<'a> {
         on: bool,
         enabled: bool,
         hotkey: Option<Cow<'a, str>>,
+    },
+    /// A row holding a slider over a handful of discrete stops: its label above, then the groove
+    /// with a dot on it at every stop, and under that the values those stops stand for — as many
+    /// as fit without crowding, the two ends always among them. The stop the slider rests on is
+    /// the one whose value is spelled out in the row's own label color.
+    ///
+    /// The slider is monochrome by design — groove, dots and handle are drawn from that label
+    /// color, like a [`MenuNode::Toggle`] checkbox — so it keeps its contrast in any theme. The
+    /// row takes no hover highlight; instead the handle grows a halo while the pointer is on the
+    /// row or dragging it.
+    ///
+    /// Coming to rest on a stop — by click, drag, or arrow key — emits that stop's id like a
+    /// [`MenuNode::Action`], once per stop crossed; the menu stays open so the value can be
+    /// dialled in. The app applies the value and rebuilds the spec, so `selected` is where the
+    /// handle is drawn next.
+    Slider {
+        title: Cow<'a, str>,
+        stops: Vec<SliderStop<'a>>,
+        /// Index into `stops` the handle rests on. Out of range leaves the handle at the near
+        /// end and no stop reported as current.
+        selected: usize,
+        enabled: bool,
+        icon: Option<MenuIcon>,
     },
     Separator,
     Submenu {
@@ -170,6 +210,40 @@ impl<'a> MenuSpec<'a> {
             on,
             enabled: false,
             hotkey,
+        });
+        self
+    }
+
+    pub fn slider(
+        mut self,
+        title: impl Into<Cow<'a, str>>,
+        stops: impl Into<Vec<SliderStop<'a>>>,
+        selected: usize,
+        icon: Option<MenuIcon>,
+    ) -> Self {
+        self.nodes.push(MenuNode::Slider {
+            title: title.into(),
+            stops: stops.into(),
+            selected,
+            enabled: true,
+            icon,
+        });
+        self
+    }
+
+    pub fn slider_disabled(
+        mut self,
+        title: impl Into<Cow<'a, str>>,
+        stops: impl Into<Vec<SliderStop<'a>>>,
+        selected: usize,
+        icon: Option<MenuIcon>,
+    ) -> Self {
+        self.nodes.push(MenuNode::Slider {
+            title: title.into(),
+            stops: stops.into(),
+            selected,
+            enabled: false,
+            icon,
         });
         self
     }

@@ -63,6 +63,13 @@ where
     pub(crate) separator_height: f32,
     pub(crate) separator_margin_vertical: f32,
     pub(crate) row_height: f32,
+    pub(crate) slider_row_height: f32,
+    pub(crate) slider_track_height: f32,
+    pub(crate) slider_handle_size: f32,
+    pub(crate) slider_handle_halo: f32,
+    pub(crate) slider_dot_size: f32,
+    pub(crate) slider_min_track_width: f32,
+    pub(crate) slider_label_gap: f32,
     open: ContextMenuOpen,
     submenu_mode: SubmenuOpenMode,
     icons_enabled: bool,
@@ -103,6 +110,13 @@ where
             separator_height: 1.0,
             separator_margin_vertical: 6.0,
             row_height: 28.0,
+            slider_row_height: 60.0,
+            slider_track_height: 4.0,
+            slider_handle_size: 13.0,
+            slider_handle_halo: 5.0,
+            slider_dot_size: 5.0,
+            slider_min_track_width: 120.0,
+            slider_label_gap: 8.0,
             open: ContextMenuOpen::default(),
             submenu_mode: SubmenuOpenMode::default(),
             icons_enabled: false,
@@ -134,6 +148,13 @@ where
             separator_height: self.separator_height,
             separator_margin_vertical: self.separator_margin_vertical,
             row_height: self.row_height,
+            slider_row_height: self.slider_row_height,
+            slider_track_height: self.slider_track_height,
+            slider_handle_size: self.slider_handle_size,
+            slider_handle_halo: self.slider_handle_halo,
+            slider_dot_size: self.slider_dot_size,
+            slider_min_track_width: self.slider_min_track_width,
+            slider_label_gap: self.slider_label_gap,
         }
     }
 
@@ -169,6 +190,53 @@ where
 
     pub fn row_height(mut self, height: f32) -> Self {
         self.row_height = height;
+        self
+    }
+
+    /// Height of a [`MenuNode::Slider`](crate::MenuNode::Slider) row: its label line takes
+    /// [`Self::row_height`], and what is left is shared by the groove and the scale under it.
+    pub fn slider_row_height(mut self, height: f32) -> Self {
+        self.slider_row_height = height;
+        self
+    }
+
+    /// Thickness of a slider's groove.
+    pub fn slider_track_height(mut self, height: f32) -> Self {
+        self.slider_track_height = height;
+        self
+    }
+
+    /// Diameter of a slider's handle. It also insets the first and last stop from the groove's
+    /// ends, so the handle never overhangs them.
+    pub fn slider_handle_size(mut self, size: f32) -> Self {
+        self.slider_handle_size = size;
+        self
+    }
+
+    /// How far the handle's halo reaches past it while the pointer is on the slider. Zero draws
+    /// no halo.
+    pub fn slider_handle_halo(mut self, reach: f32) -> Self {
+        self.slider_handle_halo = reach;
+        self
+    }
+
+    /// Diameter of the dot marking each of a slider's stops, drawn on the groove itself. Zero
+    /// draws no dots.
+    pub fn slider_dot_size(mut self, size: f32) -> Self {
+        self.slider_dot_size = size;
+        self
+    }
+
+    /// Shortest groove a slider row widens the panel for.
+    pub fn slider_min_track_width(mut self, width: f32) -> Self {
+        self.slider_min_track_width = width;
+        self
+    }
+
+    /// Smallest gap the scale under a slider leaves between two of its labels. Stops that cannot
+    /// keep it go unlabelled, except the two ends, which are always spelled out.
+    pub fn slider_label_gap(mut self, gap: f32) -> Self {
+        self.slider_label_gap = gap;
         self
     }
 

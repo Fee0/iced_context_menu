@@ -45,6 +45,6 @@ mod context_menu;
 pub use context_menu::submenu_chevron::SubmenuChevronIcon;
 pub use context_menu::{
     Catalog, ContextMenu, ContextMenuOpen, ContextMenuState, ContextMenuStyle, MenuIcon,
-    MenuItemId, MenuNode, MenuSpec, StyleFn, SubmenuOpenMode, themed,
+    MenuItemId, MenuNode, MenuSpec, SliderDrag, SliderStop, StyleFn, SubmenuOpenMode, themed,
 };
 pub use iced::advanced::text::Shaping;

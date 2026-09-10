@@ -4,6 +4,17 @@ use super::menu::{MenuNode, MenuSpec};
 
 use iced::{Point, Rectangle};
 
+/// A pointer drag holding a [`MenuNode::Slider`] row, kept for the length of the drag so the
+/// slider keeps following the pointer once it leaves the row, and so a drag reports each stop it
+/// crosses exactly once.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SliderDrag {
+    /// Path to the slider row, root index first.
+    pub path: Vec<usize>,
+    /// Index of the stop last reported.
+    pub stop: usize,
+}
+
 /// How nested submenus open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SubmenuOpenMode {
@@ -30,6 +41,8 @@ pub struct ContextMenuState {
     /// Anchor for flyout at depth `d`: parent panel bounds (`x`=left edge, `y`=row top,
     /// `width`=panel width). `height` is unused (always 0.0).
     pub submenu_anchors: Vec<Rectangle>,
+    /// The slider row the pointer is dragging, if any.
+    pub slider_drag: Option<SliderDrag>,
 }
 
 impl Default for ContextMenuState {
@@ -40,6 +53,7 @@ impl Default for ContextMenuState {
             focus_path: Vec::new(),
             open_path: Vec::new(),
             submenu_anchors: Vec::new(),
+            slider_drag: None,
         }
     }
 }
@@ -49,6 +63,7 @@ impl ContextMenuState {
         self.focus_path.clear();
         self.open_path.clear();
         self.submenu_anchors.clear();
+        self.slider_drag = None;
     }
 
     pub(crate) fn close(&mut self) {
@@ -72,7 +87,9 @@ pub(crate) fn first_focusable(nodes: &[MenuNode<'_>], skip: Option<usize>) -> Op
         }
         match n {
             MenuNode::Separator => {}
-            MenuNode::Action { enabled: false, .. } | MenuNode::Toggle { enabled: false, .. } => {}
+            MenuNode::Action { enabled: false, .. }
+            | MenuNode::Toggle { enabled: false, .. }
+            | MenuNode::Slider { enabled: false, .. } => {}
             _ => return Some(i),
         }
     }
@@ -90,7 +107,9 @@ pub(crate) fn next_focusable(nodes: &[MenuNode<'_>], from: usize, dir: isize) ->
         let ui = i as usize;
         match &nodes[ui] {
             MenuNode::Separator => continue,
-            MenuNode::Action { enabled: false, .. } | MenuNode::Toggle { enabled: false, .. } => {
+            MenuNode::Action { enabled: false, .. }
+            | MenuNode::Toggle { enabled: false, .. }
+            | MenuNode::Slider { enabled: false, .. } => {
                 continue;
             }
             _ => return Some(ui),

@@ -1,11 +1,11 @@
-﻿use iced::widget::{
+use iced::widget::{
     button, checkbox, column, container, radio, row, rule, scrollable, slider, text,
 };
 use iced::window::Settings;
 use iced::{Color, Element, Length, Size, Task};
 use iced_context_menu::{
     ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, Shaping,
-    SubmenuChevronIcon, SubmenuOpenMode,
+    SliderStop, SubmenuChevronIcon, SubmenuOpenMode,
 };
 
 fn main() -> iced::Result {
@@ -107,6 +107,8 @@ struct State {
     separator_margin_vertical: f32,
     style_preset: StylePreset,
     demo_open_mode: DemoOpenMode,
+    /// Stop the menu's slider row rests on, moved by the ids that row reports.
+    zoom: usize,
     /// One-shot: set from the button, cleared when the menu opens.
     programmatic_open_pulse: bool,
 }
@@ -141,6 +143,7 @@ impl Default for State {
             separator_margin_vertical: 6.0,
             style_preset: StylePreset::Dark,
             demo_open_mode: DemoOpenMode::default(),
+            zoom: 2,
             programmatic_open_pulse: false,
         }
     }
@@ -158,7 +161,19 @@ fn demo_glyph_icon() -> MenuIcon {
     MenuIcon::from_glyph("\u{2605}", None, Shaping::Advanced)
 }
 
-fn build_menu() -> MenuSpec<'static> {
+/// Ids of the slider row's stops, one per zoom level.
+const ZOOM_BASE: u64 = 100;
+const ZOOMS: [&str; 5] = ["50%", "75%", "100%", "150%", "200%"];
+
+fn zoom_stops() -> Vec<SliderStop<'static>> {
+    ZOOMS
+        .iter()
+        .enumerate()
+        .map(|(index, label)| SliderStop::new(ZOOM_BASE + index as u64, *label))
+        .collect()
+}
+
+fn build_menu(state: &State) -> MenuSpec<'static> {
     let more_children = MenuSpec::new()
         .action(4_u64, "Rename", None, None)
         .submenu(
@@ -204,6 +219,8 @@ fn build_menu() -> MenuSpec<'static> {
         .disabled(3_u64, "Unavailable", None, None)
         .submenu("More", more_children, None)
         .submenu("More", more_with_icon_children, Some(demo_row_icon2()))
+        .separator()
+        .slider("Zoom", zoom_stops(), state.zoom, Some(demo_glyph_icon()))
 }
 
 fn update(state: &mut State, message: Message) -> Task<Message> {
@@ -214,6 +231,12 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::MenuClosed => state.status = "Menu closed".to_string(),
         Message::MenuSelected(id) => {
+            if let Some(stop) =
+                id.0.checked_sub(ZOOM_BASE)
+                    .filter(|s| *s < ZOOMS.len() as u64)
+            {
+                state.zoom = stop as usize;
+            }
             state.status = format!("Selected item {}", id);
         }
         Message::SubmenuMode(m) => state.submenu_mode = m,
@@ -607,7 +630,7 @@ fn view(state: &State) -> Element<'_, Message> {
     };
 
     ContextMenu::new(content)
-        .items(build_menu())
+        .items(build_menu(state))
         .style(merged_style(state))
         .panel_padding(state.panel_padding)
         .min_width(state.min_width)

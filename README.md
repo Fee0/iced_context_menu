@@ -13,7 +13,14 @@ Add to `Cargo.toml`:
 iced_context_menu = { git = "https://github.com/Fee0/iced_context_menu.git" }
 ```
 
-Wrap any widget and supply a `MenuSpec`. Build with `.action`, `.disabled`, `.separator`, `.submenu`.
+Wrap any widget and supply a `MenuSpec`. Build with `.action`, `.disabled`, `.toggle`, `.slider`,
+`.separator`, `.submenu`.
+
+A `.slider` row puts a value on a track of discrete stops — its label on one line, then the groove
+with a dot on it at every stop, and under it a scale spelling out as many of them as fit, both ends
+always, the current one in the row's label color. Each stop carries its own id, so click, drag and the arrow keys all report through
+`.on_select` like any other row, once per stop crossed, and the menu stays open while the value is
+dialled in.
 
 ```rust
 use iced::widget::text;
