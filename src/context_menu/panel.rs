@@ -11,7 +11,7 @@ use iced::advanced::text::{self, Paragraph};
 use iced::alignment;
 use iced::border::Radius;
 use iced::mouse;
-use iced::{Border, Color, Font, Pixels, Point, Rectangle, Size};
+use iced::{Border, Color, Font, Padding, Pixels, Point, Rectangle, Size};
 
 /// Bundled check mark drawn inside a checked [`MenuNode::Toggle`] box.
 fn check_handle() -> svg::Handle {
@@ -49,6 +49,11 @@ pub(crate) struct PanelMetrics {
     pub slider_dot_size: f32,
     pub slider_min_track_width: f32,
     pub slider_label_gap: f32,
+    pub number_row_height: f32,
+    pub number_input_width: f32,
+    pub number_text_size: f32,
+    pub number_stepper_width: f32,
+    pub number_padding: Padding,
 }
 
 /// Toggle checkboxes live in the icon slot, so a panel holding one needs that column even when
@@ -92,6 +97,8 @@ pub(crate) fn row_geometries<'a>(nodes: &[MenuNode<'a>], metrics: &PanelMetrics)
             }
             // A slider spends one line on its label and value and the next on its track.
             MenuNode::Slider { .. } => metrics.slider_row_height + metrics.row_spacing,
+            // A number row gives its field more height than a label needs.
+            MenuNode::Number { .. } => metrics.number_row_height + metrics.row_spacing,
             _ => metrics.row_height + metrics.row_spacing,
         };
         out.push(RowGeom {
@@ -216,6 +223,7 @@ fn panel_content_width<'a, Renderer: text::Renderer>(
             MenuNode::Toggle { title, .. } => title.as_ref(),
             MenuNode::Submenu { title, .. } => title.as_ref(),
             MenuNode::Slider { title, .. } => title.as_ref(),
+            MenuNode::Number { title, .. } => title.as_ref(),
             MenuNode::Separator => continue,
         };
         let lw = measure_label_width(renderer, metrics, label);
@@ -231,6 +239,13 @@ fn panel_content_width<'a, Renderer: text::Renderer>(
             MenuNode::Slider { stops, .. } => {
                 let scale_line = scale_ends_width(renderer, metrics, stops);
                 h_margin * 2.0 + icon_extra + lw.max(metrics.slider_min_track_width).max(scale_line)
+            }
+            // The label and the field sit side by side, so the row needs both plus the gap.
+            MenuNode::Number { .. } => {
+                lw + metrics.label_hotkey_gap
+                    + metrics.number_input_width
+                    + h_margin * 2.0
+                    + icon_extra
             }
             MenuNode::Separator => continue,
         };
@@ -418,6 +433,26 @@ pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
         .move_to(Point::new(x, y));
 
     (panel, panel_w, panel_h)
+}
+
+/// Vertical margin a number row's field keeps from the row's top and bottom edges, so the field
+/// reads as sitting in the row rather than filling it.
+const NUMBER_FIELD_MARGIN: f32 = 3.0;
+
+/// Where a number row's field sits: against the row's right edge, the label taking what is left.
+///
+/// Shared by layout and hit testing, so the field is laid out exactly where the panel leaves room
+/// for it.
+pub(crate) fn number_field_bounds(metrics: &PanelMetrics, row_bounds: Rectangle) -> Rectangle {
+    let right = row_bounds.x + row_bounds.width - metrics.panel_padding - metrics.row_label_inset;
+    let height = (row_bounds.height - NUMBER_FIELD_MARGIN * 2.0).max(0.0);
+
+    Rectangle {
+        x: right - metrics.number_input_width,
+        y: row_bounds.y + NUMBER_FIELD_MARGIN,
+        width: metrics.number_input_width,
+        height,
+    }
 }
 
 fn draw_row_icon<Renderer>(
@@ -887,8 +922,11 @@ pub(crate) fn draw_panel<'a, Renderer>(
         let open_chain = !open_path.is_empty() && open_path.starts_with(row_path.as_slice());
         // A slider row is left unhighlighted: the handle's halo says the pointer is on it, and a
         // wash behind a groove drawn from the same label color only muddies both.
-        let show_row_highlight = !matches!(node, MenuNode::Separator | MenuNode::Slider { .. })
-            && (hovered || open_chain || (pointer_row.is_none() && is_focused));
+        let show_row_highlight =
+            !matches!(
+                node,
+                MenuNode::Separator | MenuNode::Slider { .. } | MenuNode::Number { .. }
+            ) && (hovered || open_chain || (pointer_row.is_none() && is_focused));
 
         let pressed = false;
         let row_label_color = |enabled: bool| {
@@ -1053,6 +1091,46 @@ pub(crate) fn draw_panel<'a, Renderer>(
                         },
                     },
                     node,
+                    clip_bounds,
+                );
+            }
+            MenuNode::Number {
+                title,
+                enabled,
+                icon,
+                ..
+            } => {
+                let color = row_label_color(*enabled);
+                if icons_enabled && let Some(ic) = icon {
+                    draw_row_icon(
+                        renderer,
+                        metrics,
+                        ic,
+                        row_bounds,
+                        row_content_left(row_bounds),
+                        clip_bounds,
+                        color,
+                    );
+                }
+                let label_x = label_x_for_row(row_bounds);
+                let field = number_field_bounds(metrics, row_bounds);
+                renderer.fill_text(
+                    text::Text {
+                        content: title.as_ref().to_string(),
+                        bounds: Size::new(
+                            (field.x - metrics.label_hotkey_gap - label_x).max(0.0),
+                            row_bounds.height,
+                        ),
+                        size: text_size,
+                        line_height,
+                        font,
+                        align_x: text::Alignment::Left,
+                        align_y: alignment::Vertical::Center,
+                        shaping: text::Shaping::default(),
+                        wrapping: text::Wrapping::None,
+                    },
+                    Point::new(label_x, row_bounds.center_y()),
+                    color,
                     clip_bounds,
                 );
             }

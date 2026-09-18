@@ -4,10 +4,13 @@ use super::panel::PanelMetrics;
 use super::style::{Catalog, ContextMenuStyle, StyleFn};
 
 use super::menu_overlay::MenuOverlay;
+use super::number::{FieldStyle, Fields};
 use super::panel::Layout;
 use super::state::{ContextMenuState, SubmenuOpenMode};
 
 use crate::SubmenuChevronIcon;
+
+use iced_numbers_input::{Icon, Orientation};
 
 use iced::advanced::layout;
 use iced::advanced::overlay;
@@ -18,7 +21,28 @@ use iced::advanced::widget::Widget;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::{Clipboard, Shell};
 use iced::mouse;
-use iced::{Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector};
+use iced::{Color, Element, Event, Length, Padding, Point, Rectangle, Shadow, Size, Vector};
+
+/// Padding inside a number field until [`ContextMenu::number_padding`] says otherwise: tight
+/// vertically, so the field fits a menu row, and generous enough horizontally to hold the value
+/// clear of the border.
+const DEFAULT_NUMBER_PADDING: Padding = Padding {
+    top: 2.0,
+    right: 8.0,
+    bottom: 2.0,
+    left: 8.0,
+};
+
+/// What a [`ContextMenu`] keeps in the widget tree: the menu's own state, and the widget state of
+/// every number field it has shown while open.
+///
+/// A field's state is its draft — the text being typed, which may not be a number yet — so it has
+/// to outlive the frame that typed it. Nothing else the menu draws has state of its own.
+#[derive(Debug, Default)]
+struct TreeState {
+    menu: ContextMenuState,
+    fields: Fields,
+}
 
 /// Right-click wrapper that shows a [`MenuSpec`](super::menu::MenuSpec) in an overlay. The menu
 /// shares the widget lifetime `'a` with the inner [`Element`](iced::Element) so row text can borrow
@@ -70,6 +94,13 @@ where
     pub(crate) slider_dot_size: f32,
     pub(crate) slider_min_track_width: f32,
     pub(crate) slider_label_gap: f32,
+    pub(crate) number_row_height: f32,
+    pub(crate) number_input_width: f32,
+    pub(crate) number_text_size: f32,
+    pub(crate) number_stepper_width: f32,
+    pub(crate) number_padding: Padding,
+    pub(crate) number_orientation: Orientation,
+    pub(crate) number_icons: Option<(Icon, Icon)>,
     open: ContextMenuOpen,
     submenu_mode: SubmenuOpenMode,
     icons_enabled: bool,
@@ -77,6 +108,7 @@ where
     on_open: Option<Message>,
     on_close: Option<Message>,
     on_select: Option<Box<dyn Fn(MenuItemId) -> Message + 'a>>,
+    on_number: Option<Box<dyn Fn(MenuItemId, f64) -> Message + 'a>>,
 }
 
 impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer>
@@ -117,6 +149,13 @@ where
             slider_dot_size: 5.0,
             slider_min_track_width: 120.0,
             slider_label_gap: 8.0,
+            number_row_height: 34.0,
+            number_input_width: 110.0,
+            number_text_size: 13.0,
+            number_stepper_width: 22.0,
+            number_padding: DEFAULT_NUMBER_PADDING,
+            number_orientation: Orientation::default(),
+            number_icons: None,
             open: ContextMenuOpen::default(),
             submenu_mode: SubmenuOpenMode::default(),
             icons_enabled: false,
@@ -124,6 +163,7 @@ where
             on_open: None,
             on_close: None,
             on_select: None,
+            on_number: None,
         }
     }
 
@@ -155,6 +195,11 @@ where
             slider_dot_size: self.slider_dot_size,
             slider_min_track_width: self.slider_min_track_width,
             slider_label_gap: self.slider_label_gap,
+            number_row_height: self.number_row_height,
+            number_input_width: self.number_input_width,
+            number_text_size: self.number_text_size,
+            number_stepper_width: self.number_stepper_width,
+            number_padding: self.number_padding,
         }
     }
 
@@ -237,6 +282,48 @@ where
     /// keep it go unlabelled, except the two ends, which are always spelled out.
     pub fn slider_label_gap(mut self, gap: f32) -> Self {
         self.slider_label_gap = gap;
+        self
+    }
+
+    /// Height of a [`MenuNode::Number`](crate::MenuNode::Number) row, which holds a field rather
+    /// than a line of text and so is taller than [`Self::row_height`].
+    pub fn number_row_height(mut self, height: f32) -> Self {
+        self.number_row_height = height;
+        self
+    }
+
+    /// Width of the field on a [`MenuNode::Number`](crate::MenuNode::Number) row. The row's label
+    /// takes what is left, and the panel grows to fit both.
+    pub fn number_input_width(mut self, width: f32) -> Self {
+        self.number_input_width = width;
+        self
+    }
+
+    pub fn number_text_size(mut self, size: f32) -> Self {
+        self.number_text_size = size;
+        self
+    }
+
+    pub fn number_stepper_width(mut self, width: f32) -> Self {
+        self.number_stepper_width = width;
+        self
+    }
+
+    /// Padding inside a number field, around the value it shows.
+    pub fn number_padding(mut self, padding: impl Into<Padding>) -> Self {
+        self.number_padding = padding.into();
+        self
+    }
+
+    /// How the stepper arrows of a number field are laid out.
+    pub fn number_orientation(mut self, orientation: Orientation) -> Self {
+        self.number_orientation = orientation;
+        self
+    }
+
+    /// Glyphs the stepper arrows are drawn with. Unset leaves the field's own carets.
+    pub fn number_icons(mut self, increase: impl Into<Icon>, decrease: impl Into<Icon>) -> Self {
+        self.number_icons = Some((increase.into(), decrease.into()));
         self
     }
 
@@ -356,6 +443,16 @@ where
         self
     }
 
+    /// Called as a [`MenuNode::Number`](crate::MenuNode::Number) row's value changes — on every
+    /// step, and on every keystroke that leaves the field holding a number inside its bounds.
+    ///
+    /// Separate from [`Self::on_select`], which carries only an id: a number row reports a value,
+    /// and reports it without closing the menu so it can be dialled in.
+    pub fn on_number(mut self, f: impl Fn(MenuItemId, f64) -> Message + 'a) -> Self {
+        self.on_number = Some(Box::new(f));
+        self
+    }
+
     pub fn on_select(mut self, f: impl Fn(MenuItemId) -> Message + 'a) -> Self {
         self.on_select = Some(Box::new(f));
         self
@@ -382,7 +479,7 @@ impl<'a, Message, Theme, Renderer> From<ContextMenu<'a, Message, Theme, Renderer
     for Element<'a, Message, Theme, Renderer>
 where
     Message: Clone + 'a,
-    Theme: Catalog + 'a,
+    Theme: Catalog + iced_numbers_input::Catalog + 'a,
     Renderer: 'a + text::Renderer<Font = iced::Font> + svg::Renderer,
 {
     fn from(menu: ContextMenu<'a, Message, Theme, Renderer>) -> Self {
@@ -394,8 +491,8 @@ impl<'a, Message: Clone, Theme, Renderer> Widget<Message, Theme, Renderer>
     for ContextMenu<'a, Message, Theme, Renderer>
 where
     Message: 'a,
-    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
-    Theme: Catalog + 'a,
+    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer + 'a,
+    Theme: Catalog + iced_numbers_input::Catalog + 'a,
 {
     fn size(&self) -> Size<Length> {
         self.content.as_widget().size()
@@ -434,11 +531,11 @@ where
     }
 
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<ContextMenuState>()
+        tree::Tag::of::<TreeState>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(ContextMenuState::default())
+        tree::State::new(TreeState::default())
     }
 
     fn children(&self) -> Vec<Tree> {
@@ -460,7 +557,7 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        let state = tree.state.downcast_mut::<ContextMenuState>();
+        let state = &mut tree.state.downcast_mut::<TreeState>().menu;
 
         self.content.as_widget_mut().update(
             &mut tree.children[0],
@@ -527,13 +624,15 @@ where
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        let state = tree.state.downcast_mut::<ContextMenuState>();
-        if !state.open {
+        let TreeState { menu, fields } = tree.state.downcast_mut::<TreeState>();
+        if !menu.open {
+            // A draft only means anything while the row it was typed into is on screen.
+            fields.clear();
             return None;
         }
 
         let menu = MenuOverlay::new(
-            state,
+            menu,
             &self.items,
             self.panel_metrics(),
             &self.class,
@@ -544,6 +643,12 @@ where
             self.close_on_select,
             self.on_close.clone(),
             self.on_select.as_deref(),
+            self.on_number.as_deref(),
+            FieldStyle {
+                orientation: self.number_orientation,
+                icons: self.number_icons.clone(),
+            },
+            fields,
             *viewport,
             translation,
             None,

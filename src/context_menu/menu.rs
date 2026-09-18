@@ -11,6 +11,7 @@
 
 use std::borrow::Cow;
 use std::fmt;
+use std::ops::RangeInclusive;
 
 use iced::Font;
 use iced::advanced::svg;
@@ -119,6 +120,26 @@ pub enum MenuNode<'a> {
         /// Index into `stops` the handle rests on. Out of range leaves the handle at the near
         /// end and no stop reported as current.
         selected: usize,
+        enabled: bool,
+        icon: Option<MenuIcon>,
+    },
+    /// A row holding a numeric field with a stepper: its label on the left, an
+    /// [`iced_numbers_input::NumberInput`] on the right. Unlike a [`MenuNode::Slider`], which
+    /// offers a handful of named stops, this reaches every value in its range — typed, stepped or
+    /// scrolled — so it is the row for a setting whose useful values cannot be listed.
+    ///
+    /// Editing it emits the value through [`crate::ContextMenu::on_number`] rather than through
+    /// `on_select`, which carries no value. The menu stays open while the value is dialled in.
+    Number {
+        id: MenuItemId,
+        title: Cow<'a, str>,
+        value: f64,
+        min: f64,
+        max: f64,
+        step: f64,
+        /// Whether the field holds whole numbers, which is what keeps a decimal point out of a
+        /// row that counts pixels.
+        integral: bool,
         enabled: bool,
         icon: Option<MenuIcon>,
     },
@@ -243,6 +264,54 @@ impl<'a> MenuSpec<'a> {
             stops: stops.into(),
             selected,
             enabled: false,
+            icon,
+        });
+        self
+    }
+
+    /// A whole-number field over `bounds`, stepping by `step`.
+    pub fn integer(
+        mut self,
+        id: impl Into<MenuItemId>,
+        title: impl Into<Cow<'a, str>>,
+        value: i64,
+        bounds: RangeInclusive<i64>,
+        step: i64,
+        icon: Option<MenuIcon>,
+    ) -> Self {
+        self.nodes.push(MenuNode::Number {
+            id: id.into(),
+            title: title.into(),
+            value: value as f64,
+            min: *bounds.start() as f64,
+            max: *bounds.end() as f64,
+            step: step as f64,
+            integral: true,
+            enabled: true,
+            icon,
+        });
+        self
+    }
+
+    /// A fractional field over `bounds`, stepping by `step`.
+    pub fn number(
+        mut self,
+        id: impl Into<MenuItemId>,
+        title: impl Into<Cow<'a, str>>,
+        value: f64,
+        bounds: RangeInclusive<f64>,
+        step: f64,
+        icon: Option<MenuIcon>,
+    ) -> Self {
+        self.nodes.push(MenuNode::Number {
+            id: id.into(),
+            title: title.into(),
+            value,
+            min: *bounds.start(),
+            max: *bounds.end(),
+            step,
+            integral: false,
+            enabled: true,
             icon,
         });
         self

@@ -48,3 +48,4 @@ pub use context_menu::{
     MenuItemId, MenuNode, MenuSpec, SliderDrag, SliderStop, StyleFn, SubmenuOpenMode, themed,
 };
 pub use iced::advanced::text::Shaping;
+pub use iced_numbers_input::{Icon as NumberIcon, Orientation as NumberOrientation};

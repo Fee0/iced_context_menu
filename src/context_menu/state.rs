@@ -89,7 +89,8 @@ pub(crate) fn first_focusable(nodes: &[MenuNode<'_>], skip: Option<usize>) -> Op
             MenuNode::Separator => {}
             MenuNode::Action { enabled: false, .. }
             | MenuNode::Toggle { enabled: false, .. }
-            | MenuNode::Slider { enabled: false, .. } => {}
+            | MenuNode::Slider { enabled: false, .. }
+            | MenuNode::Number { enabled: false, .. } => {}
             _ => return Some(i),
         }
     }
@@ -109,7 +110,8 @@ pub(crate) fn next_focusable(nodes: &[MenuNode<'_>], from: usize, dir: isize) ->
             MenuNode::Separator => continue,
             MenuNode::Action { enabled: false, .. }
             | MenuNode::Toggle { enabled: false, .. }
-            | MenuNode::Slider { enabled: false, .. } => {
+            | MenuNode::Slider { enabled: false, .. }
+            | MenuNode::Number { enabled: false, .. } => {
                 continue;
             }
             _ => return Some(ui),

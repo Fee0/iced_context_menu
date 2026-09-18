@@ -4,12 +4,13 @@
 use std::marker::PhantomData;
 
 use super::menu::{MenuItemId, MenuNode, MenuSpec, SliderStop};
+use super::number::{self, FieldStyle, Fields};
 use super::panel::PanelMetrics;
 use super::style::{Catalog, ContextMenuStyle};
 
 use super::panel::{
-    Layout, draw_panel, icon_column, layout_panel, row_geometries, row_index_at_panel_y,
-    slider_track,
+    Layout, draw_panel, icon_column, layout_panel, number_field_bounds, row_geometries,
+    row_index_at_panel_y, slider_track,
 };
 use super::state::{
     ContextMenuState, SliderDrag, SubmenuOpenMode, current_nodes, first_focusable, next_focusable,
@@ -21,11 +22,12 @@ use iced::advanced::overlay;
 use iced::advanced::renderer;
 use iced::advanced::svg;
 use iced::advanced::text;
+use iced::advanced::widget::Operation;
 use iced::advanced::{Clipboard, Shell};
 use iced::keyboard;
 use iced::mouse;
 use iced::touch;
-use iced::{Color, Event, Point, Rectangle, Shadow, Size, Vector};
+use iced::{Color, Element, Event, Point, Rectangle, Shadow, Size, Vector};
 
 /// `flyout_depth: None` — root menu (scrim, `state.anchor`, keyboard nav).
 /// `flyout_depth: Some(d)` — nested panel; same `d` as the old `SubmenuOverlay::depth`.
@@ -37,7 +39,7 @@ where
     pub(crate) state: &'a mut ContextMenuState,
     pub(crate) items: &'a MenuSpec<'b>,
     pub(crate) metrics: PanelMetrics,
-    pub(crate) class: &'a Theme::Class<'b>,
+    pub(crate) class: &'a <Theme as Catalog>::Class<'b>,
     pub(crate) hotkey_label_color_override: Option<Color>,
     pub(crate) panel_shadow_override: Option<Shadow>,
     pub(crate) submenu_mode: SubmenuOpenMode,
@@ -45,6 +47,12 @@ where
     pub(crate) close_on_select: bool,
     pub(crate) on_close: Option<Message>,
     pub(crate) on_select: Option<&'a (dyn Fn(MenuItemId) -> Message + 'b)>,
+    /// The number fields of this overlay's own panel, paired with their row index. Rebuilt from
+    /// the spec every frame; what survives is their state, which lives in `fields`.
+    pub(crate) numbers: Vec<(usize, Element<'a, Message, Theme, Renderer>)>,
+    pub(crate) fields: &'a mut Fields,
+    pub(crate) on_number: Option<&'a (dyn Fn(MenuItemId, f64) -> Message + 'b)>,
+    pub(crate) field_style: FieldStyle,
     pub(crate) viewport: Rectangle,
     pub(crate) translation: Vector,
     pub(crate) flyout_depth: Option<usize>,
@@ -57,9 +65,9 @@ where
 impl<
     'a,
     'b,
-    Message: Clone,
-    Theme: Catalog,
-    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
+    Message: Clone + 'b,
+    Theme: Catalog + iced_numbers_input::Catalog + 'b,
+    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer + 'b,
 > MenuOverlay<'a, 'b, Message, Theme, Renderer>
 where
     'b: 'a,
@@ -69,7 +77,7 @@ where
         state: &'a mut ContextMenuState,
         items: &'a MenuSpec<'b>,
         metrics: PanelMetrics,
-        class: &'a Theme::Class<'b>,
+        class: &'a <Theme as Catalog>::Class<'b>,
         hotkey_label_color_override: Option<Color>,
         panel_shadow_override: Option<Shadow>,
         submenu_mode: SubmenuOpenMode,
@@ -77,11 +85,24 @@ where
         close_on_select: bool,
         on_close: Option<Message>,
         on_select: Option<&'a (dyn Fn(MenuItemId) -> Message + 'b)>,
+        on_number: Option<&'a (dyn Fn(MenuItemId, f64) -> Message + 'b)>,
+        field_style: FieldStyle,
+        fields: &'a mut Fields,
         viewport: Rectangle,
         translation: Vector,
         flyout_depth: Option<usize>,
         anchor: Rectangle,
     ) -> Self {
+        let numbers = Self::build_numbers(
+            items,
+            &metrics,
+            &field_style,
+            on_number,
+            fields,
+            state,
+            flyout_depth,
+        );
+
         Self {
             state,
             items,
@@ -94,12 +115,228 @@ where
             close_on_select,
             on_close,
             on_select,
+            numbers,
+            fields,
+            on_number,
+            field_style,
             viewport,
             translation,
             flyout_depth,
             anchor,
             _marker: PhantomData,
         }
+    }
+
+    /// Which panel this overlay draws, as the key its fields are stored under: the root is `0` and
+    /// a flyout at depth `d` is `d + 1`.
+    fn panel_key(flyout_depth: Option<usize>) -> usize {
+        flyout_depth.map_or(0, |depth| depth + 1)
+    }
+
+    /// The nodes of this overlay's own panel.
+    fn panel_nodes(
+        items: &'a MenuSpec<'b>,
+        state: &ContextMenuState,
+        flyout_depth: Option<usize>,
+    ) -> Option<&'a [MenuNode<'a>]> {
+        let Some(depth) = flyout_depth else {
+            return Some(items.nodes());
+        };
+        if state.open_path.len() <= depth {
+            return None;
+        }
+        submenu_children(items.nodes(), &state.open_path[0..=depth])
+    }
+
+    /// Builds this panel's number fields and reconciles each against the state it left behind last
+    /// frame, so a draft being typed survives the rebuild the spec goes through every frame.
+    fn build_numbers(
+        items: &'a MenuSpec<'b>,
+        metrics: &PanelMetrics,
+        field_style: &FieldStyle,
+        on_number: Option<&'a (dyn Fn(MenuItemId, f64) -> Message + 'b)>,
+        fields: &mut Fields,
+        state: &ContextMenuState,
+        flyout_depth: Option<usize>,
+    ) -> Vec<(usize, Element<'a, Message, Theme, Renderer>)> {
+        let Some(on_number) = on_number else {
+            return Vec::new();
+        };
+        let Some(nodes) = Self::panel_nodes(items, state, flyout_depth) else {
+            return Vec::new();
+        };
+        let panel = Self::panel_key(flyout_depth);
+
+        number::rows(nodes)
+            .filter_map(|(row, node)| {
+                let element = number::field(node, metrics, field_style, on_number)?;
+                fields.reconcile((panel, row), &element);
+                Some((row, element))
+            })
+            .collect()
+    }
+
+    /// The layout nodes of this panel's fields, which follow the panel's own nodes.
+    fn number_layouts<'l>(
+        layout: Layout<'l>,
+        flyout_depth: Option<usize>,
+    ) -> impl Iterator<Item = Layout<'l>> {
+        // The panel's own nodes come first: a scrim and the panel for the root, the panel alone
+        // for a flyout.
+        let panel_nodes = match flyout_depth {
+            None => 2,
+            Some(_) => 1,
+        };
+        layout.children().skip(panel_nodes)
+    }
+
+    /// Where a panel's row sits in the viewport, the space an overlay child is laid out in.
+    fn row_bounds_in_viewport(panel: &layout::Node, row: usize) -> Option<Rectangle> {
+        let panel_origin = panel.bounds().position();
+        let inner = panel.children().first()?;
+        let inner_origin = inner.bounds().position();
+        let row_node = inner.children().get(row)?;
+        let bounds = row_node.bounds();
+
+        Some(Rectangle {
+            x: panel_origin.x + inner_origin.x + bounds.x,
+            y: panel_origin.y + inner_origin.y + bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+        })
+    }
+
+    /// Lays this panel's fields into the room [`number_field_bounds`] leaves on each row.
+    ///
+    /// One node per field, in the order [`Self::numbers`] holds them, so the two can be zipped
+    /// wherever a field and its layout are needed together. A row that has gone missing since the
+    /// fields were built still takes its place in the list, as an empty node nothing can hit.
+    fn layout_numbers(&mut self, renderer: &Renderer, panel: &layout::Node) -> Vec<layout::Node> {
+        let Self {
+            numbers,
+            fields,
+            metrics,
+            flyout_depth,
+            ..
+        } = self;
+        let key = Self::panel_key(*flyout_depth);
+
+        numbers
+            .iter_mut()
+            .map(|(row, element)| {
+                let placed = Self::row_bounds_in_viewport(panel, *row)
+                    .zip(fields.tree_mut((key, *row)))
+                    .map(|(row_bounds, tree)| {
+                        let field = number_field_bounds(metrics, row_bounds);
+                        let limits = layout::Limits::new(
+                            Size::new(field.width, 0.0),
+                            Size::new(field.width, field.height),
+                        );
+                        let node = element.as_widget_mut().layout(tree, renderer, &limits);
+                        // The field takes the height its own content asks for, which can be less
+                        // than the row leaves it, so it is centered in what it was offered.
+                        let slack = (field.height - node.size().height).max(0.0);
+                        node.move_to(Point::new(field.x, field.y + slack * 0.5))
+                    });
+
+                placed.unwrap_or_else(|| layout::Node::new(Size::ZERO))
+            })
+            .collect()
+    }
+
+    /// Hands `event` to this panel's fields. An event a field takes is left alone by the menu: a
+    /// press that lands in one is an edit, not a row being picked.
+    fn update_numbers(
+        &mut self,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+        clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+    ) {
+        let Self {
+            numbers,
+            fields,
+            flyout_depth,
+            viewport,
+            ..
+        } = self;
+        let key = Self::panel_key(*flyout_depth);
+
+        for ((row, element), field_layout) in numbers
+            .iter_mut()
+            .zip(Self::number_layouts(layout, *flyout_depth))
+        {
+            let Some(tree) = fields.tree_mut((key, *row)) else {
+                continue;
+            };
+            element.as_widget_mut().update(
+                tree,
+                event,
+                field_layout,
+                cursor,
+                renderer,
+                clipboard,
+                shell,
+                viewport,
+            );
+        }
+    }
+
+    fn draw_numbers(
+        &self,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        theme_style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+    ) {
+        let key = Self::panel_key(self.flyout_depth);
+
+        for ((row, element), field_layout) in self
+            .numbers
+            .iter()
+            .zip(Self::number_layouts(layout, self.flyout_depth))
+        {
+            let Some(tree) = self.fields.tree((key, *row)) else {
+                continue;
+            };
+            element.as_widget().draw(
+                tree,
+                renderer,
+                theme,
+                theme_style,
+                field_layout,
+                cursor,
+                &self.viewport,
+            );
+        }
+    }
+
+    /// The cursor a field asks for, when the pointer is over one.
+    fn numbers_mouse_interaction(
+        &self,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+    ) -> Option<mouse::Interaction> {
+        let key = Self::panel_key(self.flyout_depth);
+
+        self.numbers
+            .iter()
+            .zip(Self::number_layouts(layout, self.flyout_depth))
+            .find(|(_, field_layout)| cursor.is_over(field_layout.bounds()))
+            .and_then(|((row, element), field_layout)| {
+                let tree = self.fields.tree((key, *row))?;
+                Some(element.as_widget().mouse_interaction(
+                    tree,
+                    field_layout,
+                    cursor,
+                    &self.viewport,
+                    renderer,
+                ))
+            })
     }
 
     fn resolve_style(&self, theme: &Theme) -> ContextMenuStyle {
@@ -578,9 +815,9 @@ where
 impl<
     'a,
     'b,
-    Message: Clone,
-    Theme: Catalog,
-    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer,
+    Message: Clone + 'b,
+    Theme: Catalog + iced_numbers_input::Catalog + 'b,
+    Renderer: text::Renderer<Font = iced::Font> + svg::Renderer + 'b,
 > overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'a, 'b, Message, Theme, Renderer>
 where
     'b: 'a,
@@ -617,7 +854,10 @@ where
                 }
 
                 let scrim = layout::Node::new(bounds);
-                layout::Node::with_children(bounds, vec![scrim, panel_node])
+                let mut children = vec![scrim, panel_node];
+                let numbers = self.layout_numbers(renderer, &children[1]);
+                children.extend(numbers);
+                layout::Node::with_children(bounds, children)
             }
             Some(depth) => {
                 if self.state.open_path.len() <= depth {
@@ -658,7 +898,10 @@ where
                     );
                 }
 
-                layout::Node::with_children(bounds, vec![panel_node])
+                let mut children = vec![panel_node];
+                let numbers = self.layout_numbers(renderer, &children[0]);
+                children.extend(numbers);
+                layout::Node::with_children(bounds, children)
             }
         }
     }
@@ -668,16 +911,26 @@ where
         event: &Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
-        _renderer: &Renderer,
-        _clipboard: &mut dyn Clipboard,
+        renderer: &Renderer,
+        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
+        // Escape closes the menu even from inside a field: a menu the keyboard cannot dismiss is
+        // worse than a draft lost.
         if let Event::Keyboard(keyboard::Event::KeyPressed {
             key: keyboard::Key::Named(keyboard::key::Named::Escape),
             ..
         }) = event
         {
             Self::handle_escape(self.state, &self.on_close, shell);
+            return;
+        }
+
+        // The fields go first, and an event one of them takes ends the menu's interest in it: a
+        // press inside a field is an edit, and an arrow key in a focused field steps its value
+        // rather than walking the rows.
+        self.update_numbers(event, layout, cursor, renderer, clipboard, shell);
+        if shell.is_event_captured() {
             return;
         }
 
@@ -764,7 +1017,7 @@ where
         &self,
         renderer: &mut Renderer,
         theme: &Theme,
-        _theme_style: &renderer::Style,
+        theme_style: &renderer::Style,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
     ) {
@@ -828,6 +1081,9 @@ where
                 }
             }
         }
+
+        // After the panel, so a field sits on top of the row it belongs to.
+        self.draw_numbers(renderer, theme, theme_style, layout, cursor);
     }
 
     fn mouse_interaction(
@@ -838,6 +1094,9 @@ where
     ) -> mouse::Interaction {
         if self.state.slider_drag.is_some() {
             return mouse::Interaction::Grabbing;
+        }
+        if let Some(interaction) = self.numbers_mouse_interaction(layout, cursor, _renderer) {
+            return interaction;
         }
         match self.flyout_depth {
             None => {
@@ -885,6 +1144,29 @@ where
         }
     }
 
+    /// Forwards to this panel's fields, so a focus operation reaches the text field inside one.
+    fn operate(&mut self, layout: Layout<'_>, renderer: &Renderer, operation: &mut dyn Operation) {
+        let Self {
+            numbers,
+            fields,
+            flyout_depth,
+            ..
+        } = self;
+        let key = Self::panel_key(*flyout_depth);
+
+        for ((row, element), field_layout) in numbers
+            .iter_mut()
+            .zip(Self::number_layouts(layout, *flyout_depth))
+        {
+            let Some(tree) = fields.tree_mut((key, *row)) else {
+                continue;
+            };
+            element
+                .as_widget_mut()
+                .operate(tree, field_layout, renderer, operation);
+        }
+    }
+
     fn overlay<'c>(
         &'c mut self,
         _layout: Layout<'c>,
@@ -908,6 +1190,9 @@ where
                     self.close_on_select,
                     self.on_close.clone(),
                     self.on_select,
+                    self.on_number,
+                    self.field_style.clone(),
+                    self.fields,
                     self.viewport,
                     self.translation,
                     Some(0),
@@ -932,6 +1217,9 @@ where
                     self.close_on_select,
                     self.on_close.clone(),
                     self.on_select,
+                    self.on_number,
+                    self.field_style.clone(),
+                    self.fields,
                     self.viewport,
                     self.translation,
                     Some(next),

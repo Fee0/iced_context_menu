@@ -1251,6 +1251,8 @@ name = "iced_context_menu"
 version = "0.1.0"
 dependencies = [
  "iced",
+ "iced_numbers_input",
+ "num-traits",
 ]
 
 [[package]]
@@ -1313,6 +1315,15 @@ dependencies = [
  "rustc-hash 2.1.2",
  "thiserror 2.0.18",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "iced_numbers_input"
+version = "0.1.0"
+source = "git+https://github.com/Fee0/iced_numbers_input.git#f1520e7282b497fa6cef2a720b2df94f22badef5"
+dependencies = [
+ "iced",
+ "num-traits",
 ]
 
 [[package]]
