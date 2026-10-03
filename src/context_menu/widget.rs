@@ -423,6 +423,7 @@ where
         self
     }
 
+    /// Draws row icons. A panel none of whose rows has an icon collapses the icon column.
     pub fn show_item_icons(mut self, show: bool) -> Self {
         self.icons_enabled = show;
         self

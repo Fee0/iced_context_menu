@@ -56,10 +56,17 @@ pub(crate) struct PanelMetrics {
     pub number_padding: Padding,
 }
 
-/// Toggle checkboxes live in the icon slot, so a panel holding one needs that column even when
-/// the widget draws no icons.
+/// A panel reserves the icon column only when one of its rows fills it: an icon (if the widget
+/// draws icons) or a toggle checkbox, which is drawn either way.
 fn icons_column_enabled<'a>(nodes: &[MenuNode<'a>], icons_enabled: bool) -> bool {
-    icons_enabled || nodes.iter().any(|n| matches!(n, MenuNode::Toggle { .. }))
+    nodes.iter().any(|n| match n {
+        MenuNode::Toggle { .. } => true,
+        MenuNode::Action { icon, .. }
+        | MenuNode::Slider { icon, .. }
+        | MenuNode::Number { icon, .. }
+        | MenuNode::Submenu { icon, .. } => icons_enabled && icon.is_some(),
+        MenuNode::Separator => false,
+    })
 }
 
 fn icon_column_width(metrics: &PanelMetrics, icons_enabled: bool) -> f32 {
