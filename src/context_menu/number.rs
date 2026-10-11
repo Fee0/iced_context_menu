@@ -11,7 +11,7 @@
 //! [`Tree`], which is where the draft lives. Those are keyed by panel and row in [`Fields`], which
 //! the widget owns and hands down to each overlay.
 
-use super::menu::{MenuItemId, MenuNode};
+use super::menu::MenuNode;
 use super::panel::PanelMetrics;
 
 use std::collections::HashMap;
@@ -80,9 +80,9 @@ pub(crate) struct FieldStyle {
 }
 
 /// The number rows of `nodes`, each with its index in the panel.
-pub(crate) fn rows<'n, 'a>(
-    nodes: &'n [MenuNode<'a>],
-) -> impl Iterator<Item = (usize, &'n MenuNode<'a>)> {
+pub(crate) fn rows<'n, 'a, Id>(
+    nodes: &'n [MenuNode<'a, Id>],
+) -> impl Iterator<Item = (usize, &'n MenuNode<'a, Id>)> {
     nodes
         .iter()
         .enumerate()
@@ -94,13 +94,14 @@ pub(crate) fn rows<'n, 'a>(
 /// A whole-number row is built over `i64` and a fractional one over `f64`, so the field itself
 /// refuses a decimal point on a row that counts pixels rather than accepting one and rounding it
 /// away behind the user's back.
-pub(crate) fn field<'a, Message, Theme, Renderer>(
-    node: &MenuNode<'_>,
+pub(crate) fn field<'a, Id, Message, Theme, Renderer>(
+    node: &MenuNode<'_, Id>,
     metrics: &PanelMetrics,
     style: &FieldStyle,
-    on_number: &'a (dyn Fn(MenuItemId, f64) -> Message + 'a),
+    on_number: &'a (dyn Fn(Id, f64) -> Message + 'a),
 ) -> Option<Element<'a, Message, Theme, Renderer>>
 where
+    Id: 'a + Clone,
     Message: 'a + Clone,
     Theme: 'a + Catalog,
     Renderer: 'a + TextRenderer<Font = Font>,
@@ -151,8 +152,8 @@ where
         .into()
     };
 
-    let id = *id;
-    Some(element.map(move |Reported(value)| on_number(id, value)))
+    let id = id.clone();
+    Some(element.map(move |Reported(value)| on_number(id.clone(), value)))
 }
 
 /// The knobs every field takes from the menu, whatever number type it holds.

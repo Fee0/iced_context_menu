@@ -58,7 +58,7 @@ pub(crate) struct PanelMetrics {
 
 /// A panel reserves the icon column only when one of its rows fills it: an icon (if the widget
 /// draws icons) or a toggle checkbox, which is drawn either way.
-fn icons_column_enabled<'a>(nodes: &[MenuNode<'a>], icons_enabled: bool) -> bool {
+fn icons_column_enabled<'a, Id>(nodes: &[MenuNode<'a, Id>], icons_enabled: bool) -> bool {
     nodes.iter().any(|n| match n {
         MenuNode::Toggle { .. } => true,
         MenuNode::Action { icon, .. }
@@ -78,9 +78,9 @@ fn icon_column_width(metrics: &PanelMetrics, icons_enabled: bool) -> f32 {
 }
 
 /// Width the icon column takes from every row of a panel, checkboxes included.
-pub(crate) fn icon_column(
+pub(crate) fn icon_column<Id>(
     metrics: &PanelMetrics,
-    nodes: &[MenuNode<'_>],
+    nodes: &[MenuNode<'_, Id>],
     icons_enabled: bool,
 ) -> f32 {
     icon_column_width(metrics, icons_column_enabled(nodes, icons_enabled))
@@ -94,7 +94,10 @@ pub(crate) struct RowGeom {
     pub node_idx: usize,
 }
 
-pub(crate) fn row_geometries<'a>(nodes: &[MenuNode<'a>], metrics: &PanelMetrics) -> Vec<RowGeom> {
+pub(crate) fn row_geometries<'a, Id>(
+    nodes: &[MenuNode<'a, Id>],
+    metrics: &PanelMetrics,
+) -> Vec<RowGeom> {
     let mut out = Vec::new();
     let mut y = 0.0_f32;
     for (node_idx, node) in nodes.iter().enumerate() {
@@ -124,8 +127,8 @@ fn panel_height(geoms: &[RowGeom]) -> f32 {
 
 /// Hit-test using the same row bands as layout (excludes `row_spacing` gaps between rows).
 /// `panel_relative_y` is the cursor Y in coordinates of the panel node's [`Layout::bounds`].
-pub(crate) fn row_index_at_panel_y<'a>(
-    nodes: &[MenuNode<'a>],
+pub(crate) fn row_index_at_panel_y<'a, Id>(
+    nodes: &[MenuNode<'a, Id>],
     metrics: &PanelMetrics,
     panel_relative_y: f32,
 ) -> Option<usize> {
@@ -189,10 +192,10 @@ fn measure_hotkey_width<Renderer: text::Renderer>(
     <<Renderer as text::Renderer>::Paragraph as Paragraph>::with_text(text).min_width()
 }
 
-fn max_hotkey_width_in_panel<'a, Renderer: text::Renderer>(
+fn max_hotkey_width_in_panel<'a, Id, Renderer: text::Renderer>(
     renderer: &Renderer,
     metrics: &PanelMetrics,
-    nodes: &[MenuNode<'a>],
+    nodes: &[MenuNode<'a, Id>],
 ) -> f32 {
     let mut m = 0.0_f32;
     for node in nodes {
@@ -209,10 +212,10 @@ fn max_hotkey_width_in_panel<'a, Renderer: text::Renderer>(
     m
 }
 
-fn panel_content_width<'a, Renderer: text::Renderer>(
+fn panel_content_width<'a, Id, Renderer: text::Renderer>(
     renderer: &Renderer,
     metrics: &PanelMetrics,
-    nodes: &[MenuNode<'a>],
+    nodes: &[MenuNode<'a, Id>],
     icons_enabled: bool,
 ) -> f32 {
     let icon_extra = icon_column_width(metrics, icons_column_enabled(nodes, icons_enabled));
@@ -263,12 +266,12 @@ fn panel_content_width<'a, Renderer: text::Renderer>(
 
 /// Width the two ends of a slider's scale need side by side — the labels of the first and last
 /// stop, which are the two the scale never drops.
-fn scale_ends_width<Renderer: text::Renderer>(
+fn scale_ends_width<Id, Renderer: text::Renderer>(
     renderer: &Renderer,
     metrics: &PanelMetrics,
-    stops: &[SliderStop<'_>],
+    stops: &[SliderStop<'_, Id>],
 ) -> f32 {
-    let width = |stop: Option<&SliderStop<'_>>| {
+    let width = |stop: Option<&SliderStop<'_, Id>>| {
         stop.map(|stop| measure_hotkey_width(renderer, metrics, stop.label.as_ref()))
             .unwrap_or(0.0)
     };
@@ -371,10 +374,11 @@ pub(crate) fn slider_track(
     }
 }
 
-pub(crate) fn layout_panel<'a, Renderer: text::Renderer>(
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn layout_panel<'a, Id, Renderer: text::Renderer>(
     renderer: &Renderer,
     metrics: &PanelMetrics,
-    nodes: &[MenuNode<'a>],
+    nodes: &[MenuNode<'a, Id>],
     anchor: Point,
     parent_left_x: Option<f32>,
     viewport: Size,
@@ -657,11 +661,11 @@ impl ScaleLabel {
 ///
 /// A label is centered under its own dot, except at the ends, where it is pulled back inside the
 /// groove so the scale stays within the row's text column.
-fn scale_labels<Renderer: text::Renderer>(
+fn scale_labels<Id, Renderer: text::Renderer>(
     renderer: &Renderer,
     metrics: &PanelMetrics,
     track: &SliderTrack,
-    stops: &[SliderStop<'_>],
+    stops: &[SliderStop<'_, Id>],
 ) -> Vec<ScaleLabel> {
     let count = stops.len();
     if count == 0 {
@@ -699,11 +703,11 @@ fn scale_labels<Renderer: text::Renderer>(
 
 /// Draws a [`MenuNode::Slider`] row: its label on the upper line, then the groove with a dot at
 /// each stop, and the values those stops stand for.
-fn draw_slider<Renderer>(
+fn draw_slider<Id, Renderer>(
     renderer: &mut Renderer,
     metrics: &PanelMetrics,
     row: &SliderRow,
-    node: &MenuNode<'_>,
+    node: &MenuNode<'_, Id>,
     clip_bounds: Rectangle,
 ) where
     Renderer: text::Renderer<Font = Font> + svg::Renderer,
@@ -858,11 +862,12 @@ fn draw_slider<Renderer>(
     );
 }
 
-pub(crate) fn draw_panel<'a, Renderer>(
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn draw_panel<'a, Id, Renderer>(
     renderer: &mut Renderer,
     metrics: &PanelMetrics,
     style: &ContextMenuStyle,
-    nodes: &[MenuNode<'a>],
+    nodes: &[MenuNode<'a, Id>],
     layout: Layout<'_>,
     cursor: mouse::Cursor,
     focus_path: &[usize],
@@ -1054,28 +1059,28 @@ pub(crate) fn draw_panel<'a, Renderer>(
                     color,
                     clip_bounds,
                 );
-                if max_hk > 0.0 {
-                    if let Some(hk) = hotkey.as_ref() {
-                        let hk_color = row_hotkey_color(*enabled);
-                        let hk_size = Pixels(metrics.hotkey_label_size);
-                        let hk_line_height = text::LineHeight::default();
-                        renderer.fill_text(
-                            text::Text {
-                                content: hk.as_ref().to_string(),
-                                bounds: Size::new(max_hk, row_bounds.height),
-                                size: hk_size,
-                                line_height: hk_line_height,
-                                font,
-                                align_x: text::Alignment::Right,
-                                align_y: alignment::Vertical::Center,
-                                shaping: text::Shaping::default(),
-                                wrapping: text::Wrapping::None,
-                            },
-                            Point::new(content_right, row_bounds.center_y()),
-                            hk_color,
-                            clip_bounds,
-                        );
-                    }
+                if max_hk > 0.0
+                    && let Some(hk) = hotkey.as_ref()
+                {
+                    let hk_color = row_hotkey_color(*enabled);
+                    let hk_size = Pixels(metrics.hotkey_label_size);
+                    let hk_line_height = text::LineHeight::default();
+                    renderer.fill_text(
+                        text::Text {
+                            content: hk.as_ref().to_string(),
+                            bounds: Size::new(max_hk, row_bounds.height),
+                            size: hk_size,
+                            line_height: hk_line_height,
+                            font,
+                            align_x: text::Alignment::Right,
+                            align_y: alignment::Vertical::Center,
+                            shaping: text::Shaping::default(),
+                            wrapping: text::Wrapping::None,
+                        },
+                        Point::new(content_right, row_bounds.center_y()),
+                        hk_color,
+                        clip_bounds,
+                    );
                 }
             }
             MenuNode::Slider { enabled, .. } => {
@@ -1147,18 +1152,16 @@ pub(crate) fn draw_panel<'a, Renderer>(
                 let row_line_height = text::LineHeight::Absolute(Pixels(row_bounds.height));
                 let label_x = label_x_for_row(row_bounds);
                 let color = row_label_color(true);
-                if icons_enabled {
-                    if let Some(ic) = icon {
-                        draw_row_icon(
-                            renderer,
-                            metrics,
-                            ic,
-                            row_bounds,
-                            row_content_left(row_bounds),
-                            clip_bounds,
-                            color,
-                        );
-                    }
+                if icons_enabled && let Some(ic) = icon {
+                    draw_row_icon(
+                        renderer,
+                        metrics,
+                        ic,
+                        row_bounds,
+                        row_content_left(row_bounds),
+                        clip_bounds,
+                        color,
+                    );
                 }
                 renderer.fill_text(
                     text::Text {

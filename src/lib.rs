@@ -30,7 +30,10 @@
 //!
 //! # Menu data
 //!
-//! [`MenuSpec`] and [`MenuNode`] use a lifetime and [`std::borrow::Cow`] for row titles and hotkey
+//! [`MenuSpec`] and [`MenuNode`] are generic over the id each row reports when picked: an
+//! application names its items by an enum of its own, so a pick comes back already decoded.
+//!
+//! They use a lifetime and [`std::borrow::Cow`] for row titles and hotkey
 //! text so you can borrow `&str` from application state instead of allocating every frame. Build
 //! or replace the spec when the underlying data changes (typical Iced pattern). String literals and
 //! [`String`] still work via `.into()`.
@@ -44,8 +47,8 @@ mod context_menu;
 
 pub use context_menu::submenu_chevron::SubmenuChevronIcon;
 pub use context_menu::{
-    Catalog, ContextMenu, ContextMenuOpen, ContextMenuState, ContextMenuStyle, MenuIcon,
-    MenuItemId, MenuNode, MenuSpec, SliderDrag, SliderStop, StyleFn, SubmenuOpenMode, themed,
+    Catalog, ContextMenu, ContextMenuOpen, ContextMenuState, ContextMenuStyle, MenuIcon, MenuNode,
+    MenuSpec, SliderDrag, SliderStop, StyleFn, SubmenuOpenMode, themed,
 };
 pub use iced::advanced::text::Shaping;
 pub use iced_numbers_input::{Icon as NumberIcon, Orientation as NumberOrientation};

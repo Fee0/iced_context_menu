@@ -3,7 +3,7 @@
 
 use std::marker::PhantomData;
 
-use super::menu::{MenuItemId, MenuNode, MenuSpec, SliderStop};
+use super::menu::{MenuNode, MenuSpec, SliderStop};
 use super::number::{self, FieldStyle, Fields};
 use super::panel::PanelMetrics;
 use super::style::{Catalog, ContextMenuStyle};
@@ -31,13 +31,13 @@ use iced::{Color, Element, Event, Point, Rectangle, Shadow, Size, Vector};
 
 /// `flyout_depth: None` — root menu (scrim, `state.anchor`, keyboard nav).
 /// `flyout_depth: Some(d)` — nested panel; same `d` as the old `SubmenuOverlay::depth`.
-pub(crate) struct MenuOverlay<'a, 'b, Message, Theme, Renderer>
+pub(crate) struct MenuOverlay<'a, 'b, Id, Message, Theme, Renderer>
 where
     Theme: Catalog,
     'b: 'a,
 {
     pub(crate) state: &'a mut ContextMenuState,
-    pub(crate) items: &'a MenuSpec<'b>,
+    pub(crate) items: &'a MenuSpec<'b, Id>,
     pub(crate) metrics: PanelMetrics,
     pub(crate) class: &'a <Theme as Catalog>::Class<'b>,
     pub(crate) hotkey_label_color_override: Option<Color>,
@@ -46,12 +46,12 @@ where
     pub(crate) icons_enabled: bool,
     pub(crate) close_on_select: bool,
     pub(crate) on_close: Option<Message>,
-    pub(crate) on_select: Option<&'a (dyn Fn(MenuItemId) -> Message + 'b)>,
+    pub(crate) on_select: Option<&'a (dyn Fn(Id) -> Message + 'b)>,
     /// The number fields of this overlay's own panel, paired with their row index. Rebuilt from
     /// the spec every frame; what survives is their state, which lives in `fields`.
     pub(crate) numbers: Vec<(usize, Element<'a, Message, Theme, Renderer>)>,
     pub(crate) fields: &'a mut Fields,
-    pub(crate) on_number: Option<&'a (dyn Fn(MenuItemId, f64) -> Message + 'b)>,
+    pub(crate) on_number: Option<&'a (dyn Fn(Id, f64) -> Message + 'b)>,
     pub(crate) field_style: FieldStyle,
     pub(crate) viewport: Rectangle,
     pub(crate) translation: Vector,
@@ -65,17 +65,18 @@ where
 impl<
     'a,
     'b,
+    Id: Clone + 'b,
     Message: Clone + 'b,
     Theme: Catalog + iced_numbers_input::Catalog + 'b,
     Renderer: text::Renderer<Font = iced::Font> + svg::Renderer + 'b,
-> MenuOverlay<'a, 'b, Message, Theme, Renderer>
+> MenuOverlay<'a, 'b, Id, Message, Theme, Renderer>
 where
     'b: 'a,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: &'a mut ContextMenuState,
-        items: &'a MenuSpec<'b>,
+        items: &'a MenuSpec<'b, Id>,
         metrics: PanelMetrics,
         class: &'a <Theme as Catalog>::Class<'b>,
         hotkey_label_color_override: Option<Color>,
@@ -84,8 +85,8 @@ where
         icons_enabled: bool,
         close_on_select: bool,
         on_close: Option<Message>,
-        on_select: Option<&'a (dyn Fn(MenuItemId) -> Message + 'b)>,
-        on_number: Option<&'a (dyn Fn(MenuItemId, f64) -> Message + 'b)>,
+        on_select: Option<&'a (dyn Fn(Id) -> Message + 'b)>,
+        on_number: Option<&'a (dyn Fn(Id, f64) -> Message + 'b)>,
         field_style: FieldStyle,
         fields: &'a mut Fields,
         viewport: Rectangle,
@@ -135,10 +136,10 @@ where
 
     /// The nodes of this overlay's own panel.
     fn panel_nodes(
-        items: &'a MenuSpec<'b>,
+        items: &'a MenuSpec<'b, Id>,
         state: &ContextMenuState,
         flyout_depth: Option<usize>,
-    ) -> Option<&'a [MenuNode<'a>]> {
+    ) -> Option<&'a [MenuNode<'a, Id>]> {
         let Some(depth) = flyout_depth else {
             return Some(items.nodes());
         };
@@ -151,10 +152,10 @@ where
     /// Builds this panel's number fields and reconciles each against the state it left behind last
     /// frame, so a draft being typed survives the rebuild the spec goes through every frame.
     fn build_numbers(
-        items: &'a MenuSpec<'b>,
+        items: &'a MenuSpec<'b, Id>,
         metrics: &PanelMetrics,
         field_style: &FieldStyle,
-        on_number: Option<&'a (dyn Fn(MenuItemId, f64) -> Message + 'b)>,
+        on_number: Option<&'a (dyn Fn(Id, f64) -> Message + 'b)>,
         fields: &mut Fields,
         state: &ContextMenuState,
         flyout_depth: Option<usize>,
@@ -350,7 +351,7 @@ where
 
     fn write_submenu_anchor_for_next_row(
         state: &mut ContextMenuState,
-        nodes: &[MenuNode<'_>],
+        nodes: &[MenuNode<'_, Id>],
         metrics: &PanelMetrics,
         panel_bounds: Rectangle,
         panel_w: f32,
@@ -380,15 +381,16 @@ where
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn activate_row(
         state: &mut ContextMenuState,
         submenu_mode: SubmenuOpenMode,
         close_on_select: bool,
         path: &[usize],
-        nodes: &[MenuNode<'_>],
+        nodes: &[MenuNode<'_, Id>],
         idx: usize,
         on_close: &Option<Message>,
-        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        on_select: Option<&dyn Fn(Id) -> Message>,
         shell: &mut Shell<'_, Message>,
     ) {
         let Some(node) = nodes.get(idx) else {
@@ -399,7 +401,7 @@ where
                 id, enabled: true, ..
             } => {
                 if let Some(f) = on_select {
-                    shell.publish(f(*id));
+                    shell.publish(f(id.clone()));
                 }
                 if close_on_select {
                     state.close();
@@ -416,21 +418,19 @@ where
                 id, enabled: true, ..
             } => {
                 if let Some(f) = on_select {
-                    shell.publish(f(*id));
+                    shell.publish(f(id.clone()));
                 }
                 shell.capture_event();
                 shell.request_redraw();
             }
-            MenuNode::Submenu { .. } => {
-                if submenu_mode == SubmenuOpenMode::Click {
-                    if state.open_path.starts_with(path) && state.open_path.len() == path.len() {
-                        state.open_path.truncate(path.len().saturating_sub(1));
-                    } else {
-                        state.open_path = path.to_vec();
-                    }
-                    shell.capture_event();
-                    shell.request_redraw();
+            MenuNode::Submenu { .. } if submenu_mode == SubmenuOpenMode::Click => {
+                if state.open_path.starts_with(path) && state.open_path.len() == path.len() {
+                    state.open_path.truncate(path.len().saturating_sub(1));
+                } else {
+                    state.open_path = path.to_vec();
                 }
+                shell.capture_event();
+                shell.request_redraw();
             }
             _ => {}
         }
@@ -468,13 +468,13 @@ where
     }
 
     fn publish_stop(
-        stops: &[SliderStop<'_>],
+        stops: &[SliderStop<'_, Id>],
         stop: usize,
-        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        on_select: Option<&dyn Fn(Id) -> Message>,
         shell: &mut Shell<'_, Message>,
     ) {
         if let (Some(f), Some(stop)) = (on_select, stops.get(stop)) {
-            shell.publish(f(stop.id));
+            shell.publish(f(stop.id.clone()));
         }
     }
 
@@ -485,12 +485,12 @@ where
         state: &mut ContextMenuState,
         metrics: &PanelMetrics,
         icons_enabled: bool,
-        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        on_select: Option<&dyn Fn(Id) -> Message>,
         event: &Event,
         panel_layout: Layout<'_>,
         cursor: mouse::Cursor,
         shell: &mut Shell<'_, Message>,
-        nodes: &[MenuNode<'_>],
+        nodes: &[MenuNode<'_, Id>],
         prefix_path: &[usize],
     ) {
         let Some(drag) = state.slider_drag.clone() else {
@@ -536,11 +536,11 @@ where
         state: &mut ContextMenuState,
         metrics: &PanelMetrics,
         icons_enabled: bool,
-        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        on_select: Option<&dyn Fn(Id) -> Message>,
         panel_layout: Layout<'_>,
         cursor: mouse::Cursor,
         shell: &mut Shell<'_, Message>,
-        nodes: &[MenuNode<'_>],
+        nodes: &[MenuNode<'_, Id>],
         path: Vec<usize>,
         index: usize,
     ) {
@@ -573,18 +573,18 @@ where
     #[allow(clippy::too_many_arguments)]
     fn update_panel_pointer(
         state: &mut ContextMenuState,
-        items: &'a MenuSpec<'b>,
+        items: &'a MenuSpec<'b, Id>,
         metrics: &PanelMetrics,
         submenu_mode: SubmenuOpenMode,
         icons_enabled: bool,
         close_on_select: bool,
         on_close: &Option<Message>,
-        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        on_select: Option<&dyn Fn(Id) -> Message>,
         event: &Event,
         panel_layout: Layout<'_>,
         cursor: mouse::Cursor,
         shell: &mut Shell<'_, Message>,
-        nodes: &[MenuNode<'_>],
+        nodes: &[MenuNode<'_, Id>],
         prefix_path: &[usize],
     ) {
         // A live slider drag owns the pointer: the panel holding it keeps the handle following,
@@ -608,49 +608,48 @@ where
         }
 
         if let Some(p) = cursor.position_in(panel_layout.bounds()) {
-            if let Event::Mouse(mouse::Event::CursorMoved { .. }) = event {
-                if let Some(idx) = row_index_at_panel_y(nodes, metrics, p.y) {
-                    let mut new_focus = prefix_path.to_vec();
-                    new_focus.push(idx);
-                    state.focus_path = new_focus.clone();
-                    sync_open_path_for_focus(state, items, submenu_mode, &new_focus);
-                    shell.request_redraw();
-                }
+            if let Event::Mouse(mouse::Event::CursorMoved { .. }) = event
+                && let Some(idx) = row_index_at_panel_y(nodes, metrics, p.y)
+            {
+                let mut new_focus = prefix_path.to_vec();
+                new_focus.push(idx);
+                state.focus_path = new_focus.clone();
+                sync_open_path_for_focus(state, items, submenu_mode, &new_focus);
+                shell.request_redraw();
             }
 
             if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) = event
+                && let Some(idx) = row_index_at_panel_y(nodes, metrics, p.y)
             {
-                if let Some(idx) = row_index_at_panel_y(nodes, metrics, p.y) {
-                    let mut path = prefix_path.to_vec();
-                    path.push(idx);
-                    if matches!(nodes.get(idx), Some(MenuNode::Slider { .. })) {
-                        Self::press_slider(
-                            state,
-                            metrics,
-                            icons_enabled,
-                            on_select,
-                            panel_layout,
-                            cursor,
-                            shell,
-                            nodes,
-                            path,
-                            idx,
-                        );
-                        return;
-                    }
-                    Self::activate_row(
+                let mut path = prefix_path.to_vec();
+                path.push(idx);
+                if matches!(nodes.get(idx), Some(MenuNode::Slider { .. })) {
+                    Self::press_slider(
                         state,
-                        submenu_mode,
-                        close_on_select,
-                        &path,
-                        nodes,
-                        idx,
-                        on_close,
+                        metrics,
+                        icons_enabled,
                         on_select,
+                        panel_layout,
+                        cursor,
                         shell,
+                        nodes,
+                        path,
+                        idx,
                     );
+                    return;
                 }
+                Self::activate_row(
+                    state,
+                    submenu_mode,
+                    close_on_select,
+                    &path,
+                    nodes,
+                    idx,
+                    on_close,
+                    on_select,
+                    shell,
+                );
             }
         }
     }
@@ -661,7 +660,7 @@ where
         icons_enabled: bool,
         panel_layout: Layout<'_>,
         cursor: mouse::Cursor,
-        nodes: &[MenuNode<'_>],
+        nodes: &[MenuNode<'_, Id>],
     ) -> bool {
         let Some(p) = cursor.position_in(panel_layout.bounds()) else {
             return false;
@@ -684,9 +683,9 @@ where
     /// Arrow keys on a focused slider row move its handle one stop instead of walking the menu.
     fn nudge_focused_slider(
         state: &ContextMenuState,
-        items: &'a MenuSpec<'b>,
+        items: &'a MenuSpec<'b, Id>,
         direction: isize,
-        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        on_select: Option<&dyn Fn(Id) -> Message>,
         shell: &mut Shell<'_, Message>,
     ) -> bool {
         let Some(MenuNode::Slider {
@@ -712,14 +711,15 @@ where
         true
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn handle_keyboard_nav(
         state: &mut ContextMenuState,
-        items: &'a MenuSpec<'b>,
+        items: &'a MenuSpec<'b, Id>,
         submenu_mode: SubmenuOpenMode,
         event: &Event,
         shell: &mut Shell<'_, Message>,
         on_close: &Option<Message>,
-        on_select: Option<&dyn Fn(MenuItemId) -> Message>,
+        on_select: Option<&dyn Fn(Id) -> Message>,
         close_on_select: bool,
     ) {
         let Event::Keyboard(keyboard::Event::KeyPressed { key, .. }) = event else {
@@ -763,11 +763,11 @@ where
                 if let Some(MenuNode::Submenu { .. }) = n {
                     let mut p = state.focus_path.clone();
                     state.open_path = p.clone();
-                    if let Some(children) = submenu_children(items.nodes(), &p) {
-                        if let Some(ci) = first_focusable(children, None) {
-                            p.push(ci);
-                            state.focus_path = p;
-                        }
+                    if let Some(children) = submenu_children(items.nodes(), &p)
+                        && let Some(ci) = first_focusable(children, None)
+                    {
+                        p.push(ci);
+                        state.focus_path = p;
                     }
                     shell.capture_event();
                     shell.request_redraw();
@@ -815,10 +815,11 @@ where
 impl<
     'a,
     'b,
+    Id: Clone + 'b,
     Message: Clone + 'b,
     Theme: Catalog + iced_numbers_input::Catalog + 'b,
     Renderer: text::Renderer<Font = iced::Font> + svg::Renderer + 'b,
-> overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'a, 'b, Message, Theme, Renderer>
+> overlay::Overlay<Message, Theme, Renderer> for MenuOverlay<'a, 'b, Id, Message, Theme, Renderer>
 where
     'b: 'a,
 {
@@ -943,16 +944,13 @@ where
                 if let (Some(sl), Some(pl)) = (scrim_layout, panel_layout) {
                     if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
                     | Event::Touch(touch::Event::FingerPressed { .. }) = event
+                        && let Some(p) = cursor.position()
+                        && sl.bounds().contains(p)
+                        && !pl.bounds().contains(p)
+                        && self.state.slider_drag.is_none()
                     {
-                        if let Some(p) = cursor.position() {
-                            if sl.bounds().contains(p)
-                                && !pl.bounds().contains(p)
-                                && self.state.slider_drag.is_none()
-                            {
-                                Self::handle_escape(self.state, &self.on_close, shell);
-                                return;
-                            }
-                        }
+                        Self::handle_escape(self.state, &self.on_close, shell);
+                        return;
                     }
                     Self::update_panel_pointer(
                         self.state,
@@ -1123,21 +1121,15 @@ where
                     return mouse::Interaction::None;
                 }
                 let path = &self.state.open_path[0..=depth];
-                if let Some(pl) = layout.children().next() {
-                    if cursor.position().is_some_and(|p| pl.bounds().contains(p)) {
-                        if submenu_children(self.items.nodes(), path).is_some_and(|nodes| {
-                            Self::over_slider_band(
-                                &self.metrics,
-                                self.icons_enabled,
-                                pl,
-                                cursor,
-                                nodes,
-                            )
-                        }) {
-                            return mouse::Interaction::Grab;
-                        }
-                        return mouse::Interaction::Pointer;
+                if let Some(pl) = layout.children().next()
+                    && cursor.position().is_some_and(|p| pl.bounds().contains(p))
+                {
+                    if submenu_children(self.items.nodes(), path).is_some_and(|nodes| {
+                        Self::over_slider_band(&self.metrics, self.icons_enabled, pl, cursor, nodes)
+                    }) {
+                        return mouse::Interaction::Grab;
                     }
+                    return mouse::Interaction::Pointer;
                 }
                 mouse::Interaction::None
             }
@@ -1177,7 +1169,7 @@ where
                 if self.state.open_path.is_empty() {
                     return None;
                 }
-                let anchor = self.state.submenu_anchors.get(0).copied()?;
+                let anchor = self.state.submenu_anchors.first().copied()?;
                 Some(overlay::Element::new(Box::new(MenuOverlay::new(
                     self.state,
                     self.items,

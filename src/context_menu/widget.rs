@@ -1,4 +1,4 @@
-use super::menu::{MenuItemId, MenuNode, MenuSpec};
+use super::menu::{MenuNode, MenuSpec};
 use super::open::ContextMenuOpen;
 use super::panel::PanelMetrics;
 use super::style::{Catalog, ContextMenuStyle, StyleFn};
@@ -59,12 +59,12 @@ struct TreeState {
 ///
 /// By default the menu opens on right-click over the widget. Use [`Self::opens_with`] with
 /// [`ContextMenuOpen::Programmatic`] for parent-controlled open (see that variant’s docs).
-pub struct ContextMenu<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
+pub struct ContextMenu<'a, Id, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Theme: Catalog,
 {
     content: Element<'a, Message, Theme, Renderer>,
-    pub(crate) items: MenuSpec<'a>,
+    pub(crate) items: MenuSpec<'a, Id>,
     class: Theme::Class<'a>,
     hotkey_label_color_override: Option<Color>,
     panel_shadow_override: Option<Shadow>,
@@ -107,11 +107,11 @@ where
     close_on_select: bool,
     on_open: Option<Message>,
     on_close: Option<Message>,
-    on_select: Option<Box<dyn Fn(MenuItemId) -> Message + 'a>>,
-    on_number: Option<Box<dyn Fn(MenuItemId, f64) -> Message + 'a>>,
+    on_select: Option<Box<dyn Fn(Id) -> Message + 'a>>,
+    on_number: Option<Box<dyn Fn(Id, f64) -> Message + 'a>>,
 }
 
-impl<'a, Message, Theme, Renderer> ContextMenu<'a, Message, Theme, Renderer>
+impl<'a, Id, Message, Theme, Renderer> ContextMenu<'a, Id, Message, Theme, Renderer>
 where
     Theme: Catalog,
 {
@@ -203,7 +203,7 @@ where
         }
     }
 
-    pub fn items(mut self, spec: MenuSpec<'a>) -> Self {
+    pub fn items(mut self, spec: MenuSpec<'a, Id>) -> Self {
         self.items = spec;
         self
     }
@@ -449,12 +449,12 @@ where
     ///
     /// Separate from [`Self::on_select`], which carries only an id: a number row reports a value,
     /// and reports it without closing the menu so it can be dialled in.
-    pub fn on_number(mut self, f: impl Fn(MenuItemId, f64) -> Message + 'a) -> Self {
+    pub fn on_number(mut self, f: impl Fn(Id, f64) -> Message + 'a) -> Self {
         self.on_number = Some(Box::new(f));
         self
     }
 
-    pub fn on_select(mut self, f: impl Fn(MenuItemId) -> Message + 'a) -> Self {
+    pub fn on_select(mut self, f: impl Fn(Id) -> Message + 'a) -> Self {
         self.on_select = Some(Box::new(f));
         self
     }
@@ -476,21 +476,23 @@ pub(crate) fn resolve_menu_style<Theme: Catalog>(
     style
 }
 
-impl<'a, Message, Theme, Renderer> From<ContextMenu<'a, Message, Theme, Renderer>>
+impl<'a, Id, Message, Theme, Renderer> From<ContextMenu<'a, Id, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
+    Id: Clone + 'a,
     Message: Clone + 'a,
     Theme: Catalog + iced_numbers_input::Catalog + 'a,
     Renderer: 'a + text::Renderer<Font = iced::Font> + svg::Renderer,
 {
-    fn from(menu: ContextMenu<'a, Message, Theme, Renderer>) -> Self {
+    fn from(menu: ContextMenu<'a, Id, Message, Theme, Renderer>) -> Self {
         Element::new(menu)
     }
 }
 
-impl<'a, Message: Clone, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for ContextMenu<'a, Message, Theme, Renderer>
+impl<'a, Id, Message: Clone, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for ContextMenu<'a, Id, Message, Theme, Renderer>
 where
+    Id: Clone + 'a,
     Message: 'a,
     Renderer: text::Renderer<Font = iced::Font> + svg::Renderer + 'a,
     Theme: Catalog + iced_numbers_input::Catalog + 'a,
@@ -575,12 +577,11 @@ where
             let nodes = self.items.nodes();
             match self.open {
                 ContextMenuOpen::RightClick => {
-                    if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
-                        if cursor.is_over(layout.bounds()) {
-                            if let Some(p) = cursor.position() {
-                                open_menu_at(state, nodes, p, &self.on_open, shell);
-                            }
-                        }
+                    if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event
+                        && cursor.is_over(layout.bounds())
+                        && let Some(p) = cursor.position()
+                    {
+                        open_menu_at(state, nodes, p, &self.on_open, shell);
                     }
                 }
                 ContextMenuOpen::Programmatic { open, anchor } => {
@@ -667,9 +668,9 @@ fn bounds_center(bounds: Rectangle) -> Point {
     )
 }
 
-fn open_menu_at<Message: Clone>(
+fn open_menu_at<Id, Message: Clone>(
     state: &mut ContextMenuState,
-    nodes: &[MenuNode<'_>],
+    nodes: &[MenuNode<'_, Id>],
     anchor: Point,
     on_open: &Option<Message>,
     shell: &mut Shell<'_, Message>,

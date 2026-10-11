@@ -4,12 +4,12 @@ use iced::widget::{
 use iced::window::Settings;
 use iced::{Color, Element, Length, Size, Task};
 use iced_context_menu::{
-    ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuItemId, MenuSpec, Shaping,
-    SliderStop, SubmenuChevronIcon, SubmenuOpenMode,
+    ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuIcon, MenuSpec, Shaping, SliderStop,
+    SubmenuChevronIcon, SubmenuOpenMode,
 };
 
 fn main() -> iced::Result {
-    iced::application(|| State::default(), update, view)
+    iced::application(State::default, update, view)
         .window(Settings {
             size: Size::new(1500.0, 1000.0),
             ..Settings::default()
@@ -44,11 +44,24 @@ fn merged_style(state: &State) -> impl Fn(&iced::Theme) -> ContextMenuStyle + '_
     }
 }
 
+/// What a row of the demo menu stands for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Item {
+    Copy,
+    Paste,
+    Unavailable,
+    Rename,
+    CopyLink,
+    OpenPermissions,
+    /// A stop of the zoom slider, by its index into `ZOOMS`.
+    Zoom(usize),
+}
+
 #[derive(Debug, Clone)]
 enum Message {
     MenuOpened,
     MenuClosed,
-    MenuSelected(MenuItemId),
+    MenuSelected(Item),
     SubmenuMode(SubmenuOpenMode),
     ShowItemIcons(bool),
     CloseOnSelect(bool),
@@ -161,26 +174,24 @@ fn demo_glyph_icon() -> MenuIcon {
     MenuIcon::from_glyph("\u{2605}", None, Shaping::Advanced)
 }
 
-/// Ids of the slider row's stops, one per zoom level.
-const ZOOM_BASE: u64 = 100;
 const ZOOMS: [&str; 5] = ["50%", "75%", "100%", "150%", "200%"];
 
-fn zoom_stops() -> Vec<SliderStop<'static>> {
+fn zoom_stops() -> Vec<SliderStop<'static, Item>> {
     ZOOMS
         .iter()
         .enumerate()
-        .map(|(index, label)| SliderStop::new(ZOOM_BASE + index as u64, *label))
+        .map(|(index, label)| SliderStop::new(Item::Zoom(index), *label))
         .collect()
 }
 
-fn build_menu(state: &State) -> MenuSpec<'static> {
+fn build_menu(state: &State) -> MenuSpec<'static, Item> {
     let more_children = MenuSpec::new()
-        .action(4_u64, "Rename", None, None)
+        .action(Item::Rename, "Rename", None, None)
         .submenu(
             "Share",
             MenuSpec::new()
-                .action(5_u64, "Copy link", None, None)
-                .action(6_u64, "Open permissions", None, None)
+                .action(Item::CopyLink, "Copy link", None, None)
+                .action(Item::OpenPermissions, "Open permissions", None, None)
                 .nodes()
                 .to_vec(),
             None,
@@ -189,12 +200,12 @@ fn build_menu(state: &State) -> MenuSpec<'static> {
         .to_vec();
 
     let more_with_icon_children = MenuSpec::new()
-        .action(7_u64, "Rename", None, Some("F10".into()))
+        .action(Item::Rename, "Rename", None, Some("F10".into()))
         .submenu(
             "Share",
             MenuSpec::new()
-                .action(8_u64, "Copy link", None, Some("F11".into()))
-                .action(9_u64, "Open permissions", None, None)
+                .action(Item::CopyLink, "Copy link", None, Some("F11".into()))
+                .action(Item::OpenPermissions, "Open permissions", None, None)
                 .nodes()
                 .to_vec(),
             None,
@@ -204,19 +215,19 @@ fn build_menu(state: &State) -> MenuSpec<'static> {
 
     MenuSpec::new()
         .action(
-            1_u64,
+            Item::Copy,
             "Copy".to_string(),
             Some(demo_row_icon()),
             Some("Ctrl+C".into()),
         )
         .action(
-            2_u64,
+            Item::Paste,
             "Paste",
             Some(demo_glyph_icon()),
             Some("Ctrl+V".into()),
         )
         .separator()
-        .disabled(3_u64, "Unavailable", None, None)
+        .disabled(Item::Unavailable, "Unavailable", None, None)
         .submenu("More", more_children, None)
         .submenu("More", more_with_icon_children, Some(demo_row_icon2()))
         .separator()
@@ -230,14 +241,11 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
             state.programmatic_open_pulse = false;
         }
         Message::MenuClosed => state.status = "Menu closed".to_string(),
-        Message::MenuSelected(id) => {
-            if let Some(stop) =
-                id.0.checked_sub(ZOOM_BASE)
-                    .filter(|s| *s < ZOOMS.len() as u64)
-            {
-                state.zoom = stop as usize;
+        Message::MenuSelected(item) => {
+            if let Item::Zoom(stop) = item {
+                state.zoom = stop;
             }
-            state.status = format!("Selected item {}", id);
+            state.status = format!("Selected {item:?}");
         }
         Message::SubmenuMode(m) => state.submenu_mode = m,
         Message::ShowItemIcons(v) => state.show_item_icons = v,

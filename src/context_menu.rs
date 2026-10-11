@@ -10,7 +10,7 @@ mod style;
 pub mod submenu_chevron;
 mod widget;
 
-pub use menu::{MenuIcon, MenuItemId, MenuNode, MenuSpec, SliderStop};
+pub use menu::{MenuIcon, MenuNode, MenuSpec, SliderStop};
 pub use open::ContextMenuOpen;
 pub use state::{ContextMenuState, SliderDrag, SubmenuOpenMode};
 pub use style::{Catalog, ContextMenuStyle, StyleFn, themed};

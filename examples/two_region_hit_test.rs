@@ -10,10 +10,10 @@ use iced::mouse;
 use iced::widget::{column, container, text};
 use iced::window::Settings;
 use iced::{Border, Color, Element, Event, Length, Point, Rectangle, Size, Task, Theme};
-use iced_context_menu::{ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuItemId, MenuSpec};
+use iced_context_menu::{ContextMenu, ContextMenuOpen, ContextMenuStyle, MenuSpec};
 
 fn main() -> iced::Result {
-    iced::application(|| State::default(), update, view)
+    iced::application(State::default, update, view)
         .window(Settings {
             size: Size::new(720.0, 480.0),
             ..Settings::default()
@@ -27,12 +27,22 @@ enum Half {
     Right,
 }
 
+/// A row of either half's menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Item {
+    Alpha,
+    Beta,
+    One,
+    Two,
+    Three,
+}
+
 #[derive(Debug, Clone)]
 enum Message {
     OpenContextMenu { half: Half, at: Point },
     MenuOpened,
     MenuClosed,
-    MenuSelected(MenuItemId),
+    MenuSelected(Item),
 }
 
 #[derive(Debug, Clone)]
@@ -56,16 +66,16 @@ impl Default for State {
     }
 }
 
-fn menu_for_half(half: Half) -> MenuSpec<'static> {
+fn menu_for_half(half: Half) -> MenuSpec<'static, Item> {
     match half {
         Half::Left => MenuSpec::new()
-            .action(10_u64, "Left: Alpha", None, None)
-            .action(11_u64, "Left: Beta", None, None),
+            .action(Item::Alpha, "Left: Alpha", None, None)
+            .action(Item::Beta, "Left: Beta", None, None),
         Half::Right => MenuSpec::new()
-            .action(20_u64, "Right: One", None, None)
-            .action(21_u64, "Right: Two", None, None)
+            .action(Item::One, "Right: One", None, None)
+            .action(Item::Two, "Right: Two", None, None)
             .separator()
-            .action(22_u64, "Right: Three", None, None),
+            .action(Item::Three, "Right: Three", None, None),
     }
 }
 
@@ -83,11 +93,8 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::MenuClosed => {
             state.status = "Menu closed.".to_string();
         }
-        Message::MenuSelected(id) => {
-            state.status = format!(
-                "Selected item {} (last menu was {:?}).",
-                id, state.menu_half
-            );
+        Message::MenuSelected(item) => {
+            state.status = format!("Selected {item:?} (last menu was {:?}).", state.menu_half);
         }
     }
     Task::none()
