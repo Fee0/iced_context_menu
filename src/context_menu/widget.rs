@@ -621,22 +621,33 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut Tree,
-        _layout: Layout<'b>,
-        _renderer: &Renderer,
+        layout: Layout<'b>,
+        renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
+        // Taken before the content is borrowed for its pop-ups, which holds it to the end.
+        let metrics = self.panel_metrics();
+        // The content's own pop-ups (pick lists, combo boxes, tooltips) reach the screen only
+        // through here. `layout` is the content's: this widget lays itself out as its content.
+        let content = self.content.as_widget_mut().overlay(
+            &mut tree.children[0],
+            layout,
+            renderer,
+            viewport,
+            translation,
+        );
         let TreeState { menu, fields } = tree.state.downcast_mut::<TreeState>();
         if !menu.open {
             // A draft only means anything while the row it was typed into is on screen.
             fields.clear();
-            return None;
+            return content;
         }
 
         let menu = MenuOverlay::new(
             menu,
             &self.items,
-            self.panel_metrics(),
+            metrics,
             &self.class,
             self.hotkey_label_color_override,
             self.panel_shadow_override,
@@ -656,8 +667,13 @@ where
             None,
             Rectangle::default(),
         );
+        let menu = overlay::Element::new(Box::new(menu));
 
-        Some(overlay::Element::new(Box::new(menu)))
+        // Both at once: a pop-up the content had open stays drawn, under the menu.
+        Some(match content {
+            Some(content) => overlay::Group::with_children(vec![content, menu]).overlay(),
+            None => menu,
+        })
     }
 }
 
@@ -684,4 +700,112 @@ fn open_menu_at<Id, Message: Clone>(
     }
     shell.capture_event();
     shell.request_redraw();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use iced::Theme;
+    use iced::advanced::layout::{Limits, Node};
+    use iced::advanced::overlay::Overlay;
+
+    const SIZE: Size = Size::new(100.0, 100.0);
+    const POPUP: Size = Size::new(10.0, 10.0);
+
+    /// A pop-up of the content's own, standing in for an open pick list's.
+    struct Popup;
+
+    impl Overlay<(), Theme, ()> for Popup {
+        fn layout(&mut self, _renderer: &(), _bounds: Size) -> Node {
+            Node::new(POPUP)
+        }
+
+        fn draw(
+            &self,
+            _renderer: &mut (),
+            _theme: &Theme,
+            _style: &renderer::Style,
+            _layout: Layout<'_>,
+            _cursor: mouse::Cursor,
+        ) {
+        }
+    }
+
+    /// Content with a pop-up of its own open.
+    struct Popping;
+
+    impl Widget<(), Theme, ()> for Popping {
+        fn size(&self) -> Size<Length> {
+            Size::new(Length::Fill, Length::Fill)
+        }
+
+        fn layout(&mut self, _tree: &mut Tree, _renderer: &(), limits: &Limits) -> Node {
+            Node::new(limits.max())
+        }
+
+        fn draw(
+            &self,
+            _tree: &Tree,
+            _renderer: &mut (),
+            _theme: &Theme,
+            _style: &renderer::Style,
+            _layout: Layout<'_>,
+            _cursor: mouse::Cursor,
+            _viewport: &Rectangle,
+        ) {
+        }
+
+        fn overlay<'b>(
+            &'b mut self,
+            _tree: &'b mut Tree,
+            _layout: Layout<'b>,
+            _renderer: &(),
+            _viewport: &Rectangle,
+            _translation: Vector,
+        ) -> Option<overlay::Element<'b, (), Theme, ()>> {
+            Some(overlay::Element::new(Box::new(Popup)))
+        }
+    }
+
+    /// The pop-ups the menu around [`Popping`] lays out, with its own menu `open` or not, by
+    /// size: the content's is [`POPUP`] wide and high.
+    fn pop_ups(open: bool) -> Vec<Size> {
+        let mut element: Element<'_, (), Theme, ()> = Element::new(
+            ContextMenu::<'_, (), (), Theme, ()>::new(Element::new(Popping))
+                .items(MenuSpec::new().action((), "Act", None, None)),
+        );
+        let mut tree = Tree::new(&element);
+        tree.state.downcast_mut::<TreeState>().menu.open = open;
+        let node = element
+            .as_widget_mut()
+            .layout(&mut tree, &(), &Limits::new(Size::ZERO, SIZE));
+        let Some(mut overlay) = element.as_widget_mut().overlay(
+            &mut tree,
+            Layout::new(&node),
+            &(),
+            &Rectangle::with_size(SIZE),
+            Vector::ZERO,
+        ) else {
+            return Vec::new();
+        };
+        let laid_out = overlay.as_overlay_mut().layout(&(), SIZE);
+        if open {
+            // A group lays each of its pop-ups out as one of its children.
+            laid_out.children().iter().map(Node::size).collect()
+        } else {
+            vec![laid_out.size()]
+        }
+    }
+
+    #[test]
+    fn the_contents_pop_up_shows_while_the_menu_is_closed() {
+        assert_eq!(pop_ups(false), vec![POPUP]);
+    }
+
+    #[test]
+    fn the_contents_pop_up_stays_under_an_open_menu() {
+        let shown = pop_ups(true);
+        assert_eq!(shown.len(), 2);
+        assert_eq!(shown[0], POPUP);
+    }
 }
