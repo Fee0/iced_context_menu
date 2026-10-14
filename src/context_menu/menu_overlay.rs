@@ -340,6 +340,30 @@ where
             })
     }
 
+    /// The cursor as this panel should see it: unavailable while the pointer is over a flyout
+    /// deeper than this panel. iced's nested overlay only hides the cursor from a panel when it is
+    /// over that panel's direct child, so a flyout that layout pushed back over a grandparent would
+    /// otherwise leave a row highlighted in both.
+    fn panel_cursor(&self, cursor: mouse::Cursor) -> mouse::Cursor {
+        let key = Self::panel_key(self.flyout_depth);
+        // Only panels still open count: the root plus one flyout per `open_path` entry.
+        let open_panels = self.state.open_path.len() + 1;
+        let covered = cursor.position().is_some_and(|p| {
+            self.state
+                .panel_bounds
+                .iter()
+                .take(open_panels)
+                .skip(key + 1)
+                .any(|bounds| bounds.contains(p))
+        });
+
+        if covered {
+            mouse::Cursor::Unavailable
+        } else {
+            cursor
+        }
+    }
+
     fn resolve_style(&self, theme: &Theme) -> ContextMenuStyle {
         super::widget::resolve_menu_style(
             theme,
@@ -840,6 +864,8 @@ where
                 );
 
                 self.state.submenu_anchors.clear();
+                self.state.panel_bounds.clear();
+                self.state.panel_bounds.push(panel_node.bounds());
                 if !self.state.open_path.is_empty() {
                     let open_path = self.state.open_path.clone();
                     let pb = panel_node.bounds();
@@ -883,6 +909,14 @@ where
                     self.metrics.submenu_flyout_overlap,
                     self.anchor.height,
                 );
+
+                let key = Self::panel_key(self.flyout_depth);
+                if self.state.panel_bounds.len() <= key {
+                    self.state
+                        .panel_bounds
+                        .resize(key + 1, Rectangle::default());
+                }
+                self.state.panel_bounds[key] = panel_node.bounds();
 
                 let next = depth + 1;
                 if self.state.open_path.len() > next {
@@ -1020,6 +1054,7 @@ where
         cursor: mouse::Cursor,
     ) {
         let style = self.resolve_style(theme);
+        let cursor = self.panel_cursor(cursor);
         match self.flyout_depth {
             None => {
                 let mut children = layout.children();

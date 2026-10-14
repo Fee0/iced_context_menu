@@ -41,6 +41,9 @@ pub struct ContextMenuState {
     /// Anchor for flyout at depth `d`: parent panel bounds (`x`=left edge, `y`=row top,
     /// `width`=panel width). `height` is unused (always 0.0).
     pub submenu_anchors: Vec<Rectangle>,
+    /// Bounds of each panel laid out this frame: the root at `0`, the flyout at depth `d` at
+    /// `d + 1`. A panel draws its hover only while the pointer is over none deeper than it.
+    pub panel_bounds: Vec<Rectangle>,
     /// The slider row the pointer is dragging, if any.
     pub slider_drag: Option<SliderDrag>,
 }
@@ -53,6 +56,7 @@ impl Default for ContextMenuState {
             focus_path: Vec::new(),
             open_path: Vec::new(),
             submenu_anchors: Vec::new(),
+            panel_bounds: Vec::new(),
             slider_drag: None,
         }
     }
@@ -63,6 +67,7 @@ impl ContextMenuState {
         self.focus_path.clear();
         self.open_path.clear();
         self.submenu_anchors.clear();
+        self.panel_bounds.clear();
         self.slider_drag = None;
     }
 
